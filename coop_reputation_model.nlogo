@@ -1,12 +1,12 @@
 globals [ max-population initial-energy-blob ]
 
+breed [ trees tree ] ; banana trees
 breed [ solos solo ] ; solo blobs
 breed [ teams team ] ; team blobs
-breed [ trees tree ] ; banana trees 
 
+trees-own [ available-space? ]
 solos-own [ energy my-tree ]
 teams-own [ energy my-tree ]
-trees-own [ available-spaces ]
 
 to setup
   clear-all
@@ -18,11 +18,22 @@ to setup
     set pcolor green
   ]
 
+
+  create-trees number-of-trees
+  [
+    set shape "tree"
+    set color orange
+    set size 2
+    set label-color yellow - 2
+    set available-space? true
+    setxy random-buffered-xcor buffer random-buffered-ycor buffer
+  ]
+
   create-solos initial-number-solos
   [
     set shape  "person"
     set color red
-    set size 2 
+    set size 2
     set label-color red - 2
     set energy initial-energy-blob
     set my-tree nobody
@@ -37,106 +48,105 @@ to setup
     set label-color blue - 2
     set energy initial-energy-blob
     set my-tree nobody
-    setxy 0 0 
+    setxy 0 0
   ]
-  
-  create-trees number-of-trees
-  [
-   	set shape "tree"
-    set color orange
-    set size 2
-    set label-color yellow - 2
-    set available-spaces 2
-    setxy random-buffered-xcor buffer random-buffered-ycor buffer
-  ]
-  
+
   display-labels
   reset-ticks
 end
 
 to go
   ; stop the model if there are no people left
-  if not any? solos and not any? teams [ stop ]
+  if not any? solos and not any? teams [ user-message "Everyone perished" stop ]
   if count solos > max-population [ user-message "Solo blobs have inherited the earth" stop ]
   if count teams > max-population [ user-message "Team blobs have inherited the earth" stop ]
-  
+
+  assign-tree
   move-until-settled
-  
+
   ask teams [
     eat-banana
   ]
   ask solos [
     eat-banana
   ]
-  
+
   ask teams [
     reproduce
+    set my-tree nobody
     die
   ]
   ask solos [
     reproduce
+    set my-tree nobody
     die
   ]
 
   ask trees [
-    hatch-tree
-    die
+    set available-space? true
   ]
 
   tick
   display-labels
 end
 
+to assign-tree
+  while [any? (turtle-set solos teams) with [my-tree = nobody] and
+         any? trees with [available-space?]] [
+    find-teammate
+  ]
+end
+
+to find-teammate
+  let available-tree one-of trees with [available-space?]
+  let lonely-agents (turtle-set solos teams) with [my-tree = nobody]
+  let num-agents count lonely-agents
+
+  if num-agents > 0 [
+    let agent1 one-of lonely-agents
+    ask agent1 [set my-tree available-tree]
+
+    if num-agents > 1 [
+      let agent2 one-of (lonely-agents with [self != agent1])
+      ask agent2 [set my-tree available-tree]
+    ]
+  ]
+  ask available-tree [set available-space? false]
+end
+
 to move-until-settled
   let step-count 0
   let max-steps (100 * (count solos + count teams))
-  
-  while [any? (turtle-set solos teams) with [my-tree = nobody] and 
-         any? trees with [available-spaces > 0] and 
-         step-count < max-steps] [
-    
-    ask (turtle-set solos teams) with [my-tree = nobody] [
+
+  while [any? (turtle-set solos teams) with [my-tree != nobody and patch-here != [patch-here] of my-tree]
+    and step-count < max-steps] [
+
+    ask (turtle-set solos teams) with [my-tree != nobody] [
       take-step
     ]
-    
+
     set step-count step-count + 1
     display
   ]
 end
 
-to take-step
-  ; Try to attach to nearby trees first
-  let nearby-available-trees trees in-radius 0.5 with [available-spaces > 0]
-  
-  ifelse any? nearby-available-trees [
-    ; Attach to the closest available tree if we're close enough
-    let target-tree min-one-of nearby-available-trees [distance myself]
-    set my-tree target-tree
-    ask target-tree [
-      set available-spaces available-spaces - 1
-    ]
-    move-to target-tree
+to take-step ; turtle-context
+  ifelse distance my-tree <= 1 [
+    ; Attach to the tree if we're close enough
+    move-to my-tree
   ]
   [
-    ; Otherwise, move toward an available tree
-    let available-trees trees with [available-spaces > 0]
-    if any? available-trees [
-      ; Prioritize empty trees, then any available tree
-      let target-trees available-trees with [available-spaces = 2]
-      if not any? target-trees [set target-trees available-trees]
-      
-      let target-tree min-one-of target-trees [distance myself]
-      face target-tree
-      forward 0.5
-    ]
+    ; Otherwise, move toward your tree
+    face my-tree
+    forward 1
   ]
 end
 
-to eat-banana
+to eat-banana ; turtle-context
   if my-tree != nobody  [
  		  let team-blob one-of other teams with [my-tree = [my-tree] of myself]
   		let solo-blob one-of other solos with [my-tree = [my-tree] of myself]
-    
+
     ifelse team-blob = nobody and solo-blob = nobody [
       set energy energy + 2
       ;print (word self " was alone and now has " energy " energy")
@@ -159,7 +169,7 @@ to eat-banana
           set energy energy + 0.5
           ;print (word self "fought a solo-blob and now has " energy "energy")
         ]
-        [ 
+        [
           ; you are solo blob, you get 0.75
           set energy energy + 0.75
           ;print (word self " fought another solo and now has " energy " energy")
@@ -169,13 +179,13 @@ to eat-banana
   ]
 end
 
-to reproduce
+to reproduce ; turtle-context
   loop [
     if energy >= 1 [
       hatch-baby
     	set energy energy - 1
     ]
-    ifelse energy > 0 [ 
+    ifelse energy > 0 [
       if random-float 1 < energy [ hatch-baby ]
       set energy energy - 1
     ]
@@ -183,9 +193,9 @@ to reproduce
   ]
 end
 
-to hatch-baby
+to hatch-baby ; turtle-context
 ; idea: 10% chance to hatch baby from another breed
-  hatch 1 [ 
+  hatch 1 [
     setxy 0 0
     rt random-float 360 fd random 15
   	set energy initial-energy-blob
@@ -193,18 +203,11 @@ to hatch-baby
   ]   ; hatch an offspring and move it forward some steps
 end
 
-to hatch-tree
-  hatch 1 [ 
-    rt random-float 360 fd random 4
-  	set available-spaces 2 ]
-end
-
 to display-labels
   ask turtles [ set label "" ]
   if show-energy? [
     ask teams [ set label round energy ]
     ask solos [ set label round energy ]
-    ask trees [ set label round energy ]
   ]
 end
 
@@ -224,7 +227,7 @@ GRAPHICS-WINDOW
 529
 -1
 -1
-10
+10.0
 1
 14
 1
@@ -242,7 +245,7 @@ GRAPHICS-WINDOW
 1
 1
 ticks
-30
+30.0
 
 SLIDER
 5
@@ -253,7 +256,7 @@ initial-number-solos
 initial-number-solos
 0
 250
-10
+10.0
 1
 1
 NIL
@@ -268,7 +271,7 @@ initial-number-teams
 initial-number-teams
 0
 250
-10
+10.0
 1
 1
 NIL
@@ -283,7 +286,7 @@ number-of-trees
 number-of-trees
 0
 100
-2
+9.0
 1
 1
 NIL
@@ -375,16 +378,17 @@ PLOT
 Number of blobs
 time
 population
-0
-100
-0
-100
+0.0
+100.0
+0.0
+100.0
 true
 false
 "" ""
 PENS
-"Solos" 1 0 -2805978 true "" "plot count solos"
-"Teams" 1 0 -12938046 true "" "plot count teams"
+"Solos" 1.0 0 -2805978 true "" "plot count solos"
+"Teams" 1.0 0 -12938046 true "" "plot count teams"
+
 @#$#@#$#@
 This model is modified from the Wolf Sheep Predation model.
 The inspiration behind the model is a very nice video from the youtuber Primer, who simulates (and explains) social experiments. See the video here: https://www.youtube.com/watch?v=TZfh8hpJIxo
@@ -736,15 +740,15 @@ NetLogo 6.4.0
 @#$#@#$#@
 @#$#@#$#@
 default
-0
--0.2 0 0 1
-0 1 1 0
-0.2 0 0 1
+0.0
+-0.2 0 0.0 1.0
+0.0 1 1.0 0.0
+0.2 0 0.0 1.0
 link direction
 true
 0
 Line -7500403 true 150 150 90 180
 Line -7500403 true 150 150 210 180
 @#$#@#$#@
-
+0
 @#$#@#$#@
