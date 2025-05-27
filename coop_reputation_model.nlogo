@@ -72,14 +72,14 @@ to go
   ]
 
   ask teams [
+    survive-or-die
     reproduce
     set my-tree nobody
-    die
   ]
   ask solos [
+    survive-or-die
     reproduce
     set my-tree nobody
-    die
   ]
 
   ask trees [
@@ -179,14 +179,20 @@ to eat-banana ; turtle-context
   ]
 end
 
+to survive-or-die ; turtle-context
+  if energy < 1 and random-float 1 >= energy [
+    die
+  ]
+end
+
 to reproduce ; turtle-context
   loop [
-    if energy >= 1 [
+    if energy >= 2 [
       hatch-baby
     	set energy energy - 1
     ]
-    ifelse energy > 0 [
-      if random-float 1 < energy [ hatch-baby ]
+    ifelse energy > 1 [
+      if (1 + random-float 1) <= energy [ hatch-baby ]
       set energy energy - 1
     ]
     [ stop ]
