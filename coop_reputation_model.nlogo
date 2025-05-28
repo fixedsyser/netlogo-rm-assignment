@@ -148,30 +148,31 @@ to eat-banana ; turtle-context
   		let shared_tree_deceptive-agent one-of other deceptive-agents with [my-tree = [my-tree] of myself]
 
     ifelse shared_tree_honest_agent = nobody and shared_tree_deceptive-agent = nobody [
-      set energy energy + 2
+      ; A single agent receives 1.75 EP
+      set energy energy + 1.75
       ;print (word self " was alone and now has " energy " energy")
     ]
     [	
       if shared_tree_honest_agent != nobody [
         ifelse breed = honest-agents [
-          ; you are a honest agent, take 1.75
-          set energy energy +  1.75
+          ; I'm an honest agent and you are an honest agent, I receive 2 EP
+          set energy energy + 2
           ;print (word self " had another honest agent and now has " energy " energy")
         ]
-        [ ; you are a deceptive agent, take 1,5
-          set energy energy + 1.5
+        [ ; I'm a deceptive agent and you are a honest agent, I receive 3 EP
+          set energy energy + 3
           ;print (word self " fought a honest agent and now has " energy " energy")
         ]
       ]
       if shared_tree_deceptive-agent != nobody [
         ifelse breed = honest-agents [
-          ; you are a honest, take 0.5
-          set energy energy + 0.5
+          ; I'm an honest agent and you are a deceptive agent, I receive 1 EP
+          set energy energy + 1
           ;print (word self "fought a deceptive-agent and now has " energy "energy")
         ]
         [
-          ; you are a deceptive agent, you get 0.75
-          set energy energy + 0.75
+          ; I'm a deceptive agent and you are a deceptive agent, I receive 1.5 EP
+          set energy energy + 1.5
           ;print (word self " fought another deceptive agent and now has " energy " energy")
         ]
       ]
@@ -262,7 +263,7 @@ initial-number-deceptive-agents
 initial-number-deceptive-agents
 0
 250
-50.0
+30.0
 1
 1
 NIL
@@ -277,7 +278,7 @@ initial-number-honest-agents
 initial-number-honest-agents
 0
 250
-50.0
+30.0
 1
 1
 NIL
@@ -292,7 +293,7 @@ number-of-trees
 number-of-trees
 0
 100
-40.0
+20.0
 1
 1
 NIL
