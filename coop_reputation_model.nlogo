@@ -1,12 +1,12 @@
 globals [ max-population initial-energy-blob ]
 
 breed [ trees tree ] ; banana trees
-breed [ solos solo ] ; solo blobs
-breed [ teams team ] ; team blobs
+breed [ deceptive-agents deceptive-agent ] ; deceptive agents
+breed [ honest-agents honest-agent ] ; honest agents
 
 trees-own [ available-space? ]
-solos-own [ energy my-tree ]
-teams-own [ energy my-tree ]
+deceptive-agents-own [ energy my-tree ]
+honest-agents-own [ energy my-tree ]
 
 to setup
   clear-all
@@ -29,7 +29,7 @@ to setup
     setxy random-buffered-xcor buffer random-buffered-ycor buffer
   ]
 
-  create-solos initial-number-solos
+  create-deceptive-agents initial-number-deceptive-agents
   [
     set shape  "person"
     set color red
@@ -40,7 +40,7 @@ to setup
     setxy 0 0
   ]
 
-  create-teams initial-number-teams
+  create-honest-agents initial-number-honest-agents
   [
     set shape "person"
     set color blue
@@ -57,26 +57,26 @@ end
 
 to go
   ; stop the model if there are no people left
-  if not any? solos and not any? teams [ user-message "Everyone perished" stop ]
-  if count solos > max-population [ user-message "Solo blobs have inherited the earth" stop ]
-  if count teams > max-population [ user-message "Team blobs have inherited the earth" stop ]
+  if not any? deceptive-agents and not any? honest-agents [ user-message "Everyone perished" stop ]
+  if count deceptive-agents > max-population [ user-message "Deceptive agents have inherited the earth" stop ]
+  if count honest-agents > max-population [ user-message "Honest agenets have inherited the earth" stop ]
 
   assign-tree
   move-until-settled
 
-  ask teams [
+  ask honest-agents [
     eat-banana
   ]
-  ask solos [
+  ask deceptive-agents [
     eat-banana
   ]
 
-  ask teams [
+  ask honest-agents [
     survive-or-die
     reproduce
     set my-tree nobody
   ]
-  ask solos [
+  ask deceptive-agents [
     survive-or-die
     reproduce
     set my-tree nobody
@@ -91,7 +91,7 @@ to go
 end
 
 to assign-tree
-  while [any? (turtle-set solos teams) with [my-tree = nobody] and
+  while [any? (turtle-set deceptive-agents honest-agents) with [my-tree = nobody] and
          any? trees with [available-space?]] [
     find-teammate
   ]
@@ -99,7 +99,7 @@ end
 
 to find-teammate
   let available-tree one-of trees with [available-space?]
-  let lonely-agents (turtle-set solos teams) with [my-tree = nobody]
+  let lonely-agents (turtle-set deceptive-agents honest-agents) with [my-tree = nobody]
   let num-agents count lonely-agents
 
   if num-agents > 0 [
@@ -116,12 +116,12 @@ end
 
 to move-until-settled
   let step-count 0
-  let max-steps (100 * (count solos + count teams))
+  let max-steps (100 * (count deceptive-agents + count honest-agents))
 
-  while [any? (turtle-set solos teams) with [my-tree != nobody and patch-here != [patch-here] of my-tree]
+  while [any? (turtle-set deceptive-agents honest-agents) with [my-tree != nobody and patch-here != [patch-here] of my-tree]
     and step-count < max-steps] [
 
-    ask (turtle-set solos teams) with [my-tree != nobody] [
+    ask (turtle-set deceptive-agents honest-agents) with [my-tree != nobody] [
       take-step
     ]
 
@@ -144,35 +144,35 @@ end
 
 to eat-banana ; turtle-context
   if my-tree != nobody  [
- 		  let team-blob one-of other teams with [my-tree = [my-tree] of myself]
-  		let solo-blob one-of other solos with [my-tree = [my-tree] of myself]
+ 		  let shared_tree_honest_agent one-of other honest-agents with [my-tree = [my-tree] of myself]
+  		let shared_tree_deceptive-agent one-of other deceptive-agents with [my-tree = [my-tree] of myself]
 
-    ifelse team-blob = nobody and solo-blob = nobody [
+    ifelse shared_tree_honest_agent = nobody and shared_tree_deceptive-agent = nobody [
       set energy energy + 2
       ;print (word self " was alone and now has " energy " energy")
     ]
     [	
-      if team-blob != nobody [
-        ifelse breed = teams [
-          ; you are teams-blob, take 1.75
+      if shared_tree_honest_agent != nobody [
+        ifelse breed = honest-agents [
+          ; you are a honest agent, take 1.75
           set energy energy +  1.75
-          ;print (word self " had another team-blob and now has " energy " energy")
+          ;print (word self " had another honest agent and now has " energy " energy")
         ]
-        [ ; you are solo blob, take 1,5
+        [ ; you are a deceptive agent, take 1,5
           set energy energy + 1.5
-          ;print (word self " fought a team-blob and now has " energy " energy")
+          ;print (word self " fought a honest agent and now has " energy " energy")
         ]
       ]
-      if solo-blob != nobody [
-        ifelse breed = teams [
-          ; you are teams blob, take 0.5
+      if shared_tree_deceptive-agent != nobody [
+        ifelse breed = honest-agents [
+          ; you are a honest, take 0.5
           set energy energy + 0.5
-          ;print (word self "fought a solo-blob and now has " energy "energy")
+          ;print (word self "fought a deceptive-agent and now has " energy "energy")
         ]
         [
-          ; you are solo blob, you get 0.75
+          ; you are a deceptive agent, you get 0.75
           set energy energy + 0.75
-          ;print (word self " fought another solo and now has " energy " energy")
+          ;print (word self " fought another deceptive agent and now has " energy " energy")
         ]
       ]
     ]
@@ -212,8 +212,8 @@ end
 to display-labels
   ask turtles [ set label "" ]
   if show-energy? [
-    ask teams [ set label round energy ]
-    ask solos [ set label round energy ]
+    ask honest-agents [ set label round energy ]
+    ask deceptive-agents [ set label round energy ]
   ]
 end
 
@@ -256,53 +256,53 @@ ticks
 SLIDER
 5
 60
-179
+236
 93
-initial-number-solos
-initial-number-solos
+initial-number-deceptive-agents
+initial-number-deceptive-agents
 0
 250
-10.0
+50.0
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-182
-63
-347
+5
+25
+220
+58
+initial-number-honest-agents
+initial-number-honest-agents
+0
+250
+50.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+5
 96
-initial-number-teams
-initial-number-teams
-0
-250
-10.0
-1
-1
-NIL
-HORIZONTAL
-
-SLIDER
-42
-104
-254
-137
+217
+129
 number-of-trees
 number-of-trees
 0
 100
-9.0
+40.0
 1
 1
 NIL
 HORIZONTAL
 
 BUTTON
-40
-140
-109
-173
+6
+174
+75
+207
 setup
 setup
 NIL
@@ -316,10 +316,10 @@ NIL
 1
 
 BUTTON
-115
-140
-190
-173
+82
+174
+157
+207
 go
 go
 T
@@ -333,10 +333,10 @@ NIL
 0
 
 MONITOR
-185
-255
-250
-300
+225
+215
+290
+260
 trees
 count trees
 0
@@ -344,32 +344,32 @@ count trees
 11
 
 MONITOR
-25
-255
-95
-300
-team-blobs
-count teams
+6
+215
+100
+260
+honest agents
+count honest-agents
 17
 1
 11
 
 MONITOR
-105
-255
-175
-300
-solo-blobs
-count solos
+107
+215
+218
+260
+deceptive agents
+count deceptive-agents
 17
 1
 11
 
 SWITCH
-90
-190
-190
-223
+6
+133
+106
+166
 show-energy?
 show-energy?
 1
@@ -377,11 +377,11 @@ show-energy?
 -1000
 
 PLOT
-10
-325
-340
-495
-Number of blobs
+4
+267
+334
+437
+Number of agents
 time
 population
 0.0
@@ -392,8 +392,8 @@ true
 false
 "" ""
 PENS
-"Solos" 1.0 0 -2805978 true "" "plot count solos"
-"Teams" 1.0 0 -12938046 true "" "plot count teams"
+"Deceptive agents" 1.0 0 -2805978 true "" "plot count deceptive-agents"
+"Honest agents" 1.0 0 -12938046 true "" "plot count honest-agents"
 
 @#$#@#$#@
 This model is modified from the Wolf Sheep Predation model.
