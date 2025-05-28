@@ -59,7 +59,7 @@ to go
   ; stop the model if there are no people left
   if not any? deceptive-agents and not any? honest-agents [ user-message "Everyone perished" stop ]
   if count deceptive-agents > max-population [ user-message "Deceptive agents have inherited the earth" stop ]
-  if count honest-agents > max-population [ user-message "Honest agenets have inherited the earth" stop ]
+  if count honest-agents > max-population [ user-message "Honest agents have inherited the earth" stop ]
 
   assign-tree
   move-until-settled
@@ -196,7 +196,10 @@ to reproduce ; turtle-context
       if (1 + random-float 1) <= energy [ hatch-baby ]
       set energy energy - 1
     ]
-    [ stop ]
+    [
+      set energy 0
+      stop
+    ]
   ]
 end
 
