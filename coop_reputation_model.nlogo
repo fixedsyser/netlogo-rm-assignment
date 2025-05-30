@@ -1,3 +1,4 @@
+extensions [table]
 globals [ max-population initial-energy-blob ]
 
 breed [ trees tree ] ; banana trees
@@ -5,8 +6,8 @@ breed [ deceptive-agents deceptive-agent ] ; deceptive agents
 breed [ honest-agents honest-agent ] ; honest agents
 
 trees-own [ available-space? ]
-deceptive-agents-own [ energy my-tree ]
-honest-agents-own [ energy my-tree ]
+deceptive-agents-own [ energy my-tree agent-reputations]
+honest-agents-own [ energy my-tree agent-reputations]
 
 to setup
   clear-all
@@ -38,6 +39,7 @@ to setup
     set energy initial-energy-blob
     set my-tree nobody
     setxy 0 0
+    set agent-reputations table:make
   ]
 
   create-honest-agents initial-number-honest-agents
@@ -49,6 +51,7 @@ to setup
     set energy initial-energy-blob
     set my-tree nobody
     setxy 0 0
+    set agent-reputations table:make
   ]
 
   display-labels
@@ -66,9 +69,12 @@ to go
 
   ask honest-agents [
     eat-banana
+    update-reputation
   ]
+
   ask deceptive-agents [
     eat-banana
+    update-reputation
   ]
 
   ask honest-agents [
@@ -88,6 +94,23 @@ to go
 
   tick
   display-labels
+end
+
+to update-reputation
+  let shared-tree-honest-agent one-of other honest-agents with [my-tree = [my-tree] of myself]
+  let shared-tree-deceptive-agent one-of other deceptive-agents with [my-tree = [my-tree] of myself]
+
+  if shared-tree-honest-agent != nobody [
+    let reputation-score 1
+    ; add or update reputation score
+    table:put agent-reputations [who] of shared-tree-honest-agent reputation-score
+  ]
+
+  if shared-tree-deceptive-agent != nobody [
+    let reputation-score -1
+    ; add or update reputation score
+    table:put agent-reputations [who] of shared-tree-deceptive-agent reputation-score
+  ]
 end
 
 to assign-tree
