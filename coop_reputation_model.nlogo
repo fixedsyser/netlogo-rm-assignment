@@ -9,6 +9,10 @@ trees-own [ available-space? ]
 deceptive-agents-own [ energy my-tree agent-reputations]
 honest-agents-own [ energy my-tree agent-reputations]
 
+to-report agents
+  report (turtle-set deceptive-agents honest-agents)
+end
+
 to setup
   clear-all
   set max-population 1000
@@ -66,12 +70,13 @@ to go
   assign-tree
   move-until-settled
 
-  ask (turtle-set deceptive-agents honest-agents) [
+  ask agents [
     eat-banana
     update-reputation-and-communicate
   ]
 
-  ask (turtle-set deceptive-agents honest-agents) [
+  ; keep separate from above, ask executes all functions per agent
+  ask agents [
     survive-or-die
     reproduce
     set my-tree nobody
@@ -85,7 +90,7 @@ to go
 end
 
 to assign-tree
-  while [any? (turtle-set deceptive-agents honest-agents) with [my-tree = nobody] and
+  while [any? agents with [my-tree = nobody] and
          any? trees with [available-space?]] [
     find-teammate
   ]
@@ -93,7 +98,7 @@ end
 
 to find-teammate
   let available-tree one-of trees with [available-space?]
-  let lonely-agents (turtle-set deceptive-agents honest-agents) with [my-tree = nobody]
+  let lonely-agents agents with [my-tree = nobody]
   let num-agents count lonely-agents
 
   if num-agents > 0 [
@@ -112,10 +117,10 @@ to move-until-settled
   let step-count 0
   let max-steps (100 * (count deceptive-agents + count honest-agents))
 
-  while [any? (turtle-set deceptive-agents honest-agents) with [my-tree != nobody and patch-here != [patch-here] of my-tree]
+  while [any? agents with [my-tree != nobody and patch-here != [patch-here] of my-tree]
     and step-count < max-steps] [
 
-    ask (turtle-set deceptive-agents honest-agents) with [my-tree != nobody] [
+    ask agents with [my-tree != nobody] [
       take-step
     ]
 
@@ -176,7 +181,7 @@ end
 
 
 to update-reputation-and-communicate
-  let teammate one-of other (turtle-set deceptive-agents honest-agents) with [my-tree = [my-tree] of myself]
+  let teammate one-of other agents with [my-tree = [my-tree] of myself]
   if teammate != nobody and reputation-spread != -1 [
   ; there is a teammate and memory is not disabled
     let reputation-score 0
@@ -196,16 +201,37 @@ end
 
 to update-reputation [reputated-agent reputation-score]
   ; add or update reputation score
-  table:put agent-reputations [who] of reputated-agent reputation-score
+  table:put agent-reputations [who] of reputated-agent precision reputation-score 2
 end
 
 to communicate-about [reputated-agent reputation]
-  let potential-listeners other (turtle-set deceptive-agents honest-agents) with [self != reputated-agent]
+  let potential-listeners other agents with [self != reputated-agent]
+  ; make sure reputation-spread does not exceed the amount of potential listeners
   let #-to-tell min list reputation-spread count potential-listeners
   ; tell n random turtles about their interaction with a turtle
   ask n-of #-to-tell potential-listeners [
-    ; calculate belieffactor here
-    update-reputation reputated-agent reputation
+    ; get reputation of the agent communicating
+    let reputation-src-agent table:get-or-default agent-reputations [who] of myself 0
+    let reputation-target-agent table:get-or-default agent-reputations [who] of reputated-agent 0
+    ; calculate reputation with belief factor
+    let factored-reputation calculate-reputation reputation-src-agent reputation-target-agent reputation
+    update-reputation reputated-agent factored-reputation
+  ]
+end
+
+to-report calculate-reputation [rep-src-agent rep-target-agent communicated-rep]
+  let belief-reputation precision ((belief-factor rep-src-agent) * communicated-rep) 2
+  let factored-reputation rep-target-agent + belief-reputation
+  ; cap the reputation between -1 and 1
+  report max list -1 (min list 1 factored-reputation)
+end
+
+to-report belief-factor [rep-src-agent]
+  ifelse rep-src-agent > 0 [
+    report credulity-factor + (max-belief-factor - credulity-factor ) * rep-src-agent
+  ]
+  [
+    report credulity-factor * (rep-src-agent + 1)
   ]
 end
 
@@ -281,55 +307,55 @@ ticks
 30.0
 
 SLIDER
-5
-60
-236
-93
+12
+56
+201
+89
 initial-number-deceptive-agents
 initial-number-deceptive-agents
 0
 250
-30.0
+1.0
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-5
-25
-220
-58
+12
+18
+201
+51
 initial-number-honest-agents
 initial-number-honest-agents
 0
 250
-30.0
+10.0
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-5
-96
-217
-129
+215
+16
+345
+49
 number-of-trees
 number-of-trees
 0
 100
-20.0
+13.0
 1
 1
 NIL
 HORIZONTAL
 
 BUTTON
-6
-174
-75
-207
+93
+261
+162
+294
 setup
 setup
 NIL
@@ -343,10 +369,10 @@ NIL
 1
 
 BUTTON
-82
-174
-157
-207
+169
+261
+244
+294
 go
 go
 T
@@ -360,10 +386,10 @@ NIL
 0
 
 MONITOR
-225
-215
-290
-260
+231
+307
+296
+352
 trees
 count trees
 0
@@ -371,10 +397,10 @@ count trees
 11
 
 MONITOR
-6
-215
-100
-260
+11
+307
+105
+352
 honest agents
 count honest-agents
 17
@@ -382,10 +408,10 @@ count honest-agents
 11
 
 MONITOR
-107
-215
-218
-260
+113
+307
+224
+352
 deceptive agents
 count deceptive-agents
 17
@@ -393,10 +419,10 @@ count deceptive-agents
 11
 
 PLOT
-4
-267
-334
-437
+11
+359
+341
+529
 Number of agents
 time
 population
@@ -412,26 +438,76 @@ PENS
 "Honest agents" 1.0 0 -12938046 true "" "plot count honest-agents"
 
 SLIDER
-5
-133
-177
-166
+35
+110
+174
+143
 reputation-spread
 reputation-spread
 -1
 10
-0.0
+2.0
 1
 1
 NIL
 HORIZONTAL
 
 TEXTBOX
-183
-132
-370
-177
+197
+105
+327
+150
 -1: memory disabled\n0: only direct interaction\n1+: tell x people
+11
+0.0
+1
+
+SLIDER
+35
+158
+174
+191
+credulity-factor
+credulity-factor
+0
+1
+0.8
+0.1
+1
+NIL
+HORIZONTAL
+
+TEXTBOX
+196
+154
+346
+196
+To what extend do agents believe eachother regardless of reputation?
+11
+0.0
+1
+
+SLIDER
+34
+204
+173
+237
+max-belief-factor
+max-belief-factor
+0
+1
+0.9
+0.1
+1
+NIL
+HORIZONTAL
+
+TEXTBOX
+196
+209
+346
+237
+What is the maximum people will believe eachother?
 11
 0.0
 1
