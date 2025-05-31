@@ -54,7 +54,6 @@ to setup
     set agent-reputations table:make
   ]
 
-  display-labels
   reset-ticks
 end
 
@@ -67,22 +66,9 @@ to go
   assign-tree
   move-until-settled
 
-  ask honest-agents [
+  ask (turtle-set deceptive-agents honest-agents) [
     eat-banana
     update-reputation
-  ]
-
-  ask deceptive-agents [
-    eat-banana
-    update-reputation
-  ]
-
-  ask honest-agents [
-    survive-or-die
-    reproduce
-    set my-tree nobody
-  ]
-  ask deceptive-agents [
     survive-or-die
     reproduce
     set my-tree nobody
@@ -93,7 +79,6 @@ to go
   ]
 
   tick
-  display-labels
 end
 
 to update-reputation
@@ -234,14 +219,6 @@ to hatch-baby ; turtle-context
   	set energy initial-energy-blob
   	set my-tree nobody
   ]   ; hatch an offspring and move it forward some steps
-end
-
-to display-labels
-  ask turtles [ set label "" ]
-  if show-energy? [
-    ask honest-agents [ set label round energy ]
-    ask deceptive-agents [ set label round energy ]
-  ]
 end
 
 ; do not initialize trees too close to the border of the screen
@@ -391,17 +368,6 @@ count deceptive-agents
 17
 1
 11
-
-SWITCH
-6
-133
-106
-166
-show-energy?
-show-energy?
-1
-1
--1000
 
 PLOT
 4
