@@ -60,15 +60,18 @@ end
 to go
   ; stop the model if there are no people left
   if not any? deceptive-agents and not any? honest-agents [ user-message "Everyone perished" stop ]
-  if count deceptive-agents > max-population [ user-message "Deceptive agents have inherited the earth" stop ]
-  if count honest-agents > max-population [ user-message "Honest agents have inherited the earth" stop ]
+  if count deceptive-agents > max-population or count honest-agents = 0 [ user-message "Deceptive agents have inherited the earth" stop ]
+  if count honest-agents > max-population or count deceptive-agents = 0 [ user-message "Honest agents have inherited the earth" stop ]
 
   assign-tree
   move-until-settled
 
   ask (turtle-set deceptive-agents honest-agents) [
     eat-banana
-    update-reputation
+    update-reputation-and-communicate
+  ]
+
+  ask (turtle-set deceptive-agents honest-agents) [
     survive-or-die
     reproduce
     set my-tree nobody
@@ -79,23 +82,6 @@ to go
   ]
 
   tick
-end
-
-to update-reputation
-  let shared-tree-honest-agent one-of other honest-agents with [my-tree = [my-tree] of myself]
-  let shared-tree-deceptive-agent one-of other deceptive-agents with [my-tree = [my-tree] of myself]
-
-  if shared-tree-honest-agent != nobody [
-    let reputation-score 1
-    ; add or update reputation score
-    table:put agent-reputations [who] of shared-tree-honest-agent reputation-score
-  ]
-
-  if shared-tree-deceptive-agent != nobody [
-    let reputation-score -1
-    ; add or update reputation score
-    table:put agent-reputations [who] of shared-tree-deceptive-agent reputation-score
-  ]
 end
 
 to assign-tree
@@ -188,6 +174,42 @@ to eat-banana ; turtle-context
   ]
 end
 
+
+to update-reputation-and-communicate
+  let teammate one-of other (turtle-set deceptive-agents honest-agents) with [my-tree = [my-tree] of myself]
+  if teammate != nobody and reputation-spread != -1 [
+  ; there is a teammate and memory is not disabled
+    let reputation-score 0
+    ifelse [breed] of teammate = honest-agents [
+      ; teammate was honest
+      set reputation-score 1
+    ]
+    [ ; teammate was deceptive
+      set reputation-score -1
+    ]
+    update-reputation teammate reputation-score
+    if reputation-spread != 0 [
+      communicate-about teammate reputation-score
+    ]
+  ]
+end
+
+to update-reputation [reputated-agent reputation-score]
+  ; add or update reputation score
+  table:put agent-reputations [who] of reputated-agent reputation-score
+end
+
+to communicate-about [reputated-agent reputation]
+  let potential-listeners other (turtle-set deceptive-agents honest-agents) with [self != reputated-agent]
+  let #-to-tell min list reputation-spread count potential-listeners
+  ; tell n random turtles about their interaction with a turtle
+  ask n-of #-to-tell potential-listeners [
+    ; calculate belieffactor here
+    update-reputation reputated-agent reputation
+  ]
+end
+
+
 to survive-or-die ; turtle-context
   if energy < 1 and random-float 1 >= energy [
     die
@@ -218,6 +240,7 @@ to hatch-baby ; turtle-context
     rt random-float 360 fd random 15
   	set energy initial-energy-blob
   	set my-tree nobody
+    set agent-reputations table:make ; do kids inherit the reputation table of their parents?
   ]   ; hatch an offspring and move it forward some steps
 end
 
@@ -387,6 +410,31 @@ false
 PENS
 "Deceptive agents" 1.0 0 -2805978 true "" "plot count deceptive-agents"
 "Honest agents" 1.0 0 -12938046 true "" "plot count honest-agents"
+
+SLIDER
+5
+133
+177
+166
+reputation-spread
+reputation-spread
+-1
+10
+0.0
+1
+1
+NIL
+HORIZONTAL
+
+TEXTBOX
+183
+132
+370
+177
+-1: memory disabled\n0: only direct interaction\n1+: tell x people
+11
+0.0
+1
 
 @#$#@#$#@
 This model is modified from the Wolf Sheep Predation model.
