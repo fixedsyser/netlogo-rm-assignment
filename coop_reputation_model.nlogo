@@ -67,7 +67,7 @@ to go
   if count deceptive-agents > max-population or count honest-agents = 0 [ user-message "Deceptive agents have inherited the earth" stop ]
   if count honest-agents > max-population or count deceptive-agents = 0 [ user-message "Honest agents have inherited the earth" stop ]
 
-  assign-tree
+  form-teams-and-assign-to-trees
   move-until-settled
 
   ask agents [
@@ -89,28 +89,63 @@ to go
   tick
 end
 
-to assign-tree
-  while [any? agents with [my-tree = nobody] and
-         any? trees with [available-space?]] [
-    find-teammate
-  ]
+to-report get-reputation-score [agent1 agent2]
+  let default-reputation-score 0
+  report table:get-or-default [agent-reputations] of agent1 [who] of agent2 default-reputation-score
 end
 
-to find-teammate
-  let available-tree one-of trees with [available-space?]
+to-report select-teammate [agent lonely-agents]
+  let epsilon 0.25 ; 25% chance on exploring, needed to discover the population
+  let trust-threshold 0
+
+  if random-float 1 < epsilon  [
+    ; explore: select a random lonely agent
+    report one-of (lonely-agents with [self != agent])
+  ]
+
+  ; exploit: try to select best known agent
+  let teammate-candidates lonely-agents with [self != agent]
+  let trusted-teammate-candidates teammate-candidates with [get-reputation-score agent self > trust-threshold]
+
+  if any? trusted-teammate-candidates[
+    ; select best candidate
+    report one-of trusted-teammate-candidates with-max [get-reputation-score agent self]
+  ]
+
+   ; fallback to random selection if no good candidate is known
+   report one-of (lonely-agents with [self != agent])
+end
+
+
+to form-teams-and-assign-to-trees
+  let available-trees trees with [available-space?]
   let lonely-agents agents with [my-tree = nobody]
-  let num-agents count lonely-agents
+  let smoothing-value 0.01
 
-  if num-agents > 0 [
+  while [count lonely-agents >= 2 and any? available-trees] [
     let agent1 one-of lonely-agents
-    ask agent1 [set my-tree available-tree]
+    let agent2 select-teammate agent1 lonely-agents
 
-    if num-agents > 1 [
-      let agent2 one-of (lonely-agents with [self != agent1])
+    ; get reputation score of other agent, if unknown 0, meaning 50% chance of teaming up
+    let agent1-to-agent2-rep get-reputation-score agent1 agent2
+    let agent2-to-agent1-rep get-reputation-score agent2 agent1
+
+    ; make positive and normalize by adding 2 to min -2, max 2 and divide by 4 to a probability
+    ; add smoothing to avoid 0 when both reputations are -1
+    let probability (agent1-to-agent2-rep + agent2-to-agent1-rep + 2 + smoothing-value) / 4
+    if probability > 1 [set probability 1]
+
+    ; form teams with a probability, more chance if probability is higher
+    if random-float 1 < probability [
+      let available-tree one-of available-trees
+      ask agent1 [set my-tree available-tree]
       ask agent2 [set my-tree available-tree]
+      ask available-tree [set available-space? false]
+      set available-trees available-trees with [self != available-tree]
+      set lonely-agents lonely-agents with [self != agent1 and self != agent2]
+      ; print (word "2 agents with reputations " agent1-to-agent2-rep " and " agent2-to-agent1-rep " team up.")
     ]
   ]
-  ask available-tree [set available-space? false]
 end
 
 to move-until-settled
@@ -315,7 +350,7 @@ initial-number-deceptive-agents
 initial-number-deceptive-agents
 0
 250
-1.0
+30.0
 1
 1
 NIL
@@ -330,7 +365,7 @@ initial-number-honest-agents
 initial-number-honest-agents
 0
 250
-10.0
+30.0
 1
 1
 NIL
@@ -345,7 +380,7 @@ number-of-trees
 number-of-trees
 0
 100
-13.0
+20.0
 1
 1
 NIL
@@ -446,7 +481,7 @@ reputation-spread
 reputation-spread
 -1
 10
-2.0
+7.0
 1
 1
 NIL
