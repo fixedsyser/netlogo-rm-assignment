@@ -240,6 +240,11 @@ to update-reputation [reputated-agent reputation-score]
 end
 
 to communicate-about [reputated-agent reputation]
+  ; deceptive agents can lie!
+  if breed = deceptive-agents and random-float 1 < slander-ratio [
+    set reputation (reputation * -1)
+  ]
+
   let potential-listeners other agents with [self != reputated-agent]
   ; make sure reputation-spread does not exceed the amount of potential listeners
   let #-to-tell min list reputation-spread count potential-listeners
@@ -380,17 +385,17 @@ number-of-trees
 number-of-trees
 0
 100
-20.0
+9.0
 1
 1
 NIL
 HORIZONTAL
 
 BUTTON
-93
-261
-162
-294
+212
+307
+273
+352
 setup
 setup
 NIL
@@ -404,10 +409,10 @@ NIL
 1
 
 BUTTON
-169
-261
-244
-294
+279
+307
+340
+352
 go
 go
 T
@@ -421,20 +426,9 @@ NIL
 0
 
 MONITOR
-231
-307
-296
-352
-trees
-count trees
-0
-1
-11
-
-MONITOR
 11
 307
-105
+96
 352
 honest agents
 count honest-agents
@@ -443,10 +437,10 @@ count honest-agents
 11
 
 MONITOR
-113
-307
-224
-352
+102
+308
+203
+353
 deceptive agents
 count deceptive-agents
 17
@@ -543,6 +537,31 @@ TEXTBOX
 346
 237
 What is the maximum people will believe eachother?
+11
+0.0
+1
+
+SLIDER
+35
+251
+174
+284
+slander-ratio
+slander-ratio
+0
+1
+1.0
+0.1
+1
+NIL
+HORIZONTAL
+
+TEXTBOX
+194
+251
+344
+279
+chance of deceptive agents lying during communication
 11
 0.0
 1
