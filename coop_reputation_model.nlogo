@@ -94,57 +94,97 @@ to-report get-reputation-score [agent1 agent2]
   report table:get-or-default [agent-reputations] of agent1 [who] of agent2 default-reputation-score
 end
 
+; this function is based on the Reciprocal Reputation Matching algorithm,
+; it prioritizes mutual trust before falling back to one-sided trust and exploration
 to-report select-teammate [agent lonely-agents]
-  let epsilon 0.25 ; 25% chance on exploring, needed to discover the population
-  let trust-threshold 0
+  ; exploration is currently disabled - fallback already handles this especially in early ticks
+  let epsilon 0
+  let trust-threshold 0 ; trust agents with score > 0
 
+  let teammate-candidates lonely-agents with [self != agent]
+
+  ; optional exploration currently skipped
   if random-float 1 < epsilon  [
     ; explore: select a random lonely agent
-    report one-of (lonely-agents with [self != agent])
+    let partner one-of teammate-candidates
+    let agent-to-partner-rep  get-reputation-score agent partner
+    let partner-to-agent-rep  get-reputation-score partner agent
+    print (word "[EARLY EXPLORE RANDOM] Agent " [who] of agent " - partner " [who] of partner
+      ": Reputations a->p " agent-to-partner-rep ", p->a " partner-to-agent-rep)
+    report partner
   ]
 
-  ; exploit: try to select best known agent
-  let teammate-candidates lonely-agents with [self != agent]
-  let trusted-teammate-candidates teammate-candidates with [get-reputation-score agent self > trust-threshold]
+  ; step 1: try to find trusted agents from lonely-agents which are alive and available
+  let one-sided-trusted-teammate-candidates teammate-candidates with [
+    get-reputation-score agent self > trust-threshold
+  ]
 
-  if any? trusted-teammate-candidates[
+  ; mutual trust: both agents trust each other
+  let mutual-candidates one-sided-trusted-teammate-candidates with [
+    get-reputation-score self agent > trust-threshold
+  ]
+
+  ; select best match of trusted agents
+  if any? mutual-candidates [
+    let partner one-of mutual-candidates with-max [
+      get-reputation-score agent self + get-reputation-score self agent
+    ]
+    let agent-to-partner-rep  get-reputation-score agent partner
+    let partner-to-agent-rep  get-reputation-score partner agent
+    print (word "[MUTUAL] Agent " [who] of agent " - partner " [who] of partner
+      ": Reputations a->p " agent-to-partner-rep ", p->a " partner-to-agent-rep)
+    report partner
+  ]
+
+  ; step 2: fallback to select best one-sided trusted agent
+  if any? one-sided-trusted-teammate-candidates[
     ; select best candidate
-    report one-of trusted-teammate-candidates with-max [get-reputation-score agent self]
+    let partner one-of one-sided-trusted-teammate-candidates with-max [
+      get-reputation-score agent self
+    ]
+    let agent-to-partner-rep  get-reputation-score agent partner
+    let partner-to-agent-rep  get-reputation-score partner agent
+    print (word "[ONE-SIDED] Agent " [who] of agent " - partner " [who] of partner
+      ": Reputations a->p " agent-to-partner-rep ", p->a " partner-to-agent-rep)
+    report partner
   ]
 
-   ; fallback to random selection if no good candidate is known
-   report one-of (lonely-agents with [self != agent])
+  ; step 3: fallback to random selection
+  let partner one-of teammate-candidates
+  let agent-to-partner-rep  get-reputation-score agent partner
+  let partner-to-agent-rep  get-reputation-score partner agent
+  print (word "[RANDOM] Agent " [who] of agent " - partner " [who] of partner
+    ": Reputations a->p " agent-to-partner-rep ", p->a " partner-to-agent-rep)
+  report partner
 end
-
 
 to form-teams-and-assign-to-trees
   let available-trees trees with [available-space?]
   let lonely-agents agents with [my-tree = nobody]
-  let smoothing-value 0.01
 
+  ; team up agents while at least 2 are left and there are available trees
   while [count lonely-agents >= 2 and any? available-trees] [
     let agent1 one-of lonely-agents
     let agent2 select-teammate agent1 lonely-agents
+    let available-tree one-of available-trees
 
-    ; get reputation score of other agent, if unknown 0, meaning 50% chance of teaming up
-    let agent1-to-agent2-rep get-reputation-score agent1 agent2
-    let agent2-to-agent1-rep get-reputation-score agent2 agent1
+    ; assign agents to the same tree
+    ask agent1 [set my-tree available-tree]
+    ask agent2 [set my-tree available-tree]
+    ask available-tree [set available-space? false]
 
-    ; make positive and normalize by adding 2 to min -2, max 2 and divide by 4 to a probability
-    ; add smoothing to avoid 0 when both reputations are -1
-    let probability (agent1-to-agent2-rep + agent2-to-agent1-rep + 2 + smoothing-value) / 4
-    if probability > 1 [set probability 1]
+    ; update sets
+    set available-trees available-trees with [self != available-tree]
+    set lonely-agents lonely-agents with [self != agent1 and self != agent2]
+  ]
 
-    ; form teams with a probability, more chance if probability is higher
-    if random-float 1 < probability [
-      let available-tree one-of available-trees
-      ask agent1 [set my-tree available-tree]
-      ask agent2 [set my-tree available-tree]
-      ask available-tree [set available-space? false]
-      set available-trees available-trees with [self != available-tree]
-      set lonely-agents lonely-agents with [self != agent1 and self != agent2]
-      ; print (word "2 agents with reputations " agent1-to-agent2-rep " and " agent2-to-agent1-rep " team up.")
-    ]
+  ; assign last agent to an available tree
+  if count lonely-agents = 1 and any? available-trees [
+    let last-agent one-of lonely-agents
+    let available-tree one-of available-trees
+
+    ask last-agent [set my-tree available-tree]
+    ask available-tree [set available-space? false]
   ]
 end
 
@@ -385,7 +425,7 @@ number-of-trees
 number-of-trees
 0
 100
-9.0
+20.0
 1
 1
 NIL
@@ -475,7 +515,7 @@ reputation-spread
 reputation-spread
 -1
 10
-7.0
+10.0
 1
 1
 NIL
@@ -550,7 +590,7 @@ slander-ratio
 slander-ratio
 0
 1
-1.0
+0.9
 0.1
 1
 NIL
