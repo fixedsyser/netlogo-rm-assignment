@@ -358,6 +358,23 @@ end
 to-report random-buffered-ycor [buffer]
   report random-float (2 * (max-pycor - buffer)) - (max-pycor - buffer)
 end
+
+to-report average-reputation
+  let total-score 0
+  let agent-count 0
+
+  ask agents [
+    foreach table:keys agent-reputations [
+      [id] ->
+      let score table:get agent-reputations id
+      set total-score total-score + score
+      set agent-count agent-count + 1
+    ]
+  ]
+
+  if agent-count = 0 [ report 0 ] ; avoid divide by zero
+  report total-score / agent-count
+end
 @#$#@#$#@
 GRAPHICS-WINDOW
 355
@@ -590,7 +607,7 @@ slander-ratio
 slander-ratio
 0
 1
-0.9
+0.0
 0.1
 1
 NIL
@@ -605,6 +622,25 @@ chance of deceptive agents lying during communication
 11
 0.0
 1
+
+PLOT
+11
+537
+340
+703
+Average reputation
+time
+score
+0.0
+100.0
+-1.0
+1.0
+true
+false
+"" ""
+PENS
+"average" 1.0 0 -16777216 true "set-current-plot-pen \"average\"\n" "plot average-reputation"
+"x-axis" 1.0 0 -7500403 true "set-plot-pen-color gray" "plot 0"
 
 @#$#@#$#@
 This model is modified from the Wolf Sheep Predation model.
