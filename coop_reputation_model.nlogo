@@ -6,8 +6,8 @@ breed [ deceptive-agents deceptive-agent ] ; deceptive agents
 breed [ honest-agents honest-agent ] ; honest agents
 
 trees-own [ available-space? ]
-deceptive-agents-own [ energy my-tree agent-reputations]
-honest-agents-own [ energy my-tree agent-reputations]
+deceptive-agents-own [ energy my-tree agent-reputations age]
+honest-agents-own [ energy my-tree agent-reputations age]
 
 to-report agents
   report (turtle-set deceptive-agents honest-agents)
@@ -44,6 +44,7 @@ to setup
     set my-tree nobody
     setxy 0 0
     set agent-reputations table:make
+    set age 0
   ]
 
   create-honest-agents initial-number-honest-agents
@@ -56,6 +57,7 @@ to setup
     set my-tree nobody
     setxy 0 0
     set agent-reputations table:make
+    set age 0
   ]
 
   reset-ticks
@@ -66,6 +68,10 @@ to go
   if not any? deceptive-agents and not any? honest-agents [ user-message "Everyone perished" stop ]
   if count deceptive-agents > max-population or count honest-agents = 0 [ user-message "Deceptive agents have inherited the earth" stop ]
   if count honest-agents > max-population or count deceptive-agents = 0 [ user-message "Honest agents have inherited the earth" stop ]
+
+  ask agents [
+    set age age + 1
+  ]
 
   form-teams-and-assign-to-trees
   move-until-settled
@@ -347,6 +353,7 @@ to hatch-baby ; turtle-context
   	set energy initial-energy-blob
   	set my-tree nobody
     set agent-reputations table:make ; do kids inherit the reputation table of their parents?
+    set age 0
   ]   ; hatch an offspring and move it forward some steps
 end
 
@@ -677,7 +684,7 @@ slander-ratio
 slander-ratio
 0
 1
-0.5
+0.8
 0.1
 1
 NIL
@@ -715,10 +722,10 @@ PENS
 "average-deceptive3" 1.0 0 -2674135 true "" "plot average-reputation-score-of-deceptive-agents"
 
 PLOT
-885
-359
-1211
-509
+883
+361
+1209
+521
 Average reputation length
 time
 length
@@ -737,19 +744,19 @@ PENS
 MONITOR
 1221
 188
-1327
+1342
 233
-avg rep score all
+avg rep score of all
 average-reputation-score-all-agents
 2
 1
 11
 
 MONITOR
-1220
-360
-1331
-405
+1222
+362
+1333
+407
 avg rep length all
 average-reputation-length-all-agents
 2
@@ -757,10 +764,10 @@ average-reputation-length-all-agents
 11
 
 MONITOR
-1221
-412
-1357
-457
+1223
+414
+1359
+459
 avg rep length honest
 average-reputation-length-honest-agents
 2
@@ -768,10 +775,10 @@ average-reputation-length-honest-agents
 11
 
 MONITOR
-1221
-463
-1373
-508
+1223
+465
+1375
+510
 avg rep length deceptive
 average-reputation-length-deceptive-agents
 2
@@ -781,9 +788,9 @@ average-reputation-length-deceptive-agents
 MONITOR
 1221
 241
-1353
+1368
 286
-avg rep score honest
+avg rep score of honest
 average-reputation-score-of-honest-agents
 2
 1
@@ -792,10 +799,63 @@ average-reputation-score-of-honest-agents
 MONITOR
 1221
 294
-1369
+1384
 339
-avg rep score deceptive
+avg rep score of deceptive
 average-reputation-score-of-deceptive-agents
+2
+1
+11
+
+MONITOR
+1219
+529
+1339
+574
+Average age all
+mean [age] of agents
+2
+1
+11
+
+PLOT
+883
+528
+1208
+687
+Average agent age
+time
+age
+0.0
+100.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"average" 1.0 0 -16777216 true "" "ifelse any? agents\n[plot mean [age] of agents]\n[plot 0]"
+"average-honest" 1.0 0 -13791810 true "" "ifelse any? honest-agents \n[plot mean [age] of honest-agents]\n[plot 0]"
+"average-deceptive" 1.0 0 -2674135 true "" "ifelse any? deceptive-agents\n[plot mean [age] of deceptive-agents]\n[plot 0]"
+
+MONITOR
+1220
+581
+1320
+626
+avg age honest
+mean [ age ] of honest-agents
+2
+1
+11
+
+MONITOR
+1221
+631
+1337
+676
+avg age deceptive
+mean [ age ] of deceptive-agents
 2
 1
 11
