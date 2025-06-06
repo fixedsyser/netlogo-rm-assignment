@@ -226,7 +226,7 @@ to eat-banana ; turtle-context
       set energy energy + 1.75
       ;print (word self " was alone and now has " energy " energy")
     ]
-    [	
+    [
       if shared_tree_honest_agent != nobody [
         ifelse breed = honest-agents [
           ; I'm an honest agent and you are an honest agent, I receive 2 EP
@@ -359,21 +359,55 @@ to-report random-buffered-ycor [buffer]
   report random-float (2 * (max-pycor - buffer)) - (max-pycor - buffer)
 end
 
-to-report average-reputation
+to-report average-reputation-score
   let total-score 0
-  let agent-count 0
+  let reputation-count 0
 
   ask agents [
-    foreach table:keys agent-reputations [
-      [id] ->
+    foreach table:keys agent-reputations [ [id] ->
       let score table:get agent-reputations id
       set total-score total-score + score
-      set agent-count agent-count + 1
-    ]
+      set reputation-count reputation-count + 1 ]
+  ]
+
+  if reputation-count = 0 [ report 0 ] ; avoid divide by zero
+  report total-score / reputation-count
+end
+
+to-report average-reputation-length-all-agents
+  let total-length 0
+  let agent-count count agents
+
+  ask agents [
+    set total-length total-length + length table:keys agent-reputations
   ]
 
   if agent-count = 0 [ report 0 ] ; avoid divide by zero
-  report total-score / agent-count
+  report total-length / agent-count
+end
+
+to-report average-reputation-length-deceptive-agents
+  let total-length 0
+  let agent-count count deceptive-agents
+
+  ask deceptive-agents [
+    set total-length total-length + length table:keys agent-reputations
+  ]
+
+  if agent-count = 0 [ report 0 ] ; avoid divide by zero
+  report total-length / agent-count
+end
+
+to-report average-reputation-length-honest-agents
+  let total-length 0
+  let agent-count count honest-agents
+
+  ask honest-agents [
+    set total-length total-length + length table:keys agent-reputations
+  ]
+
+  if agent-count = 0 [ report 0 ] ; avoid divide by zero
+  report total-length / agent-count
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
@@ -449,10 +483,10 @@ NIL
 HORIZONTAL
 
 BUTTON
-212
-307
-273
-352
+13
+302
+74
+347
 setup
 setup
 NIL
@@ -466,10 +500,10 @@ NIL
 1
 
 BUTTON
-279
-307
-340
-352
+80
+302
+141
+347
 go
 go
 T
@@ -483,10 +517,10 @@ NIL
 0
 
 MONITOR
-11
-307
-96
-352
+1221
+10
+1306
+55
 honest agents
 count honest-agents
 17
@@ -494,10 +528,10 @@ count honest-agents
 11
 
 MONITOR
-102
-308
-203
-353
+1221
+61
+1322
+106
 deceptive agents
 count deceptive-agents
 17
@@ -505,10 +539,10 @@ count deceptive-agents
 11
 
 PLOT
-11
-359
-341
-529
+883
+10
+1213
+180
 Number of agents
 time
 population
@@ -521,13 +555,13 @@ false
 "" ""
 PENS
 "Deceptive agents" 1.0 0 -2805978 true "" "plot count deceptive-agents"
-"Honest agents" 1.0 0 -12938046 true "" "plot count honest-agents"
+"Honest agents_1" 1.0 0 -12938046 true "" "plot count honest-agents"
 
 SLIDER
-35
-110
-174
-143
+13
+108
+152
+141
 reputation-spread
 reputation-spread
 -1
@@ -539,20 +573,20 @@ NIL
 HORIZONTAL
 
 TEXTBOX
-197
-105
-327
-150
+175
+103
+305
+148
 -1: memory disabled\n0: only direct interaction\n1+: tell x people
 11
 0.0
 1
 
 SLIDER
-35
-158
-174
-191
+13
+156
+152
+189
 credulity-factor
 credulity-factor
 0
@@ -564,20 +598,20 @@ NIL
 HORIZONTAL
 
 TEXTBOX
-196
-154
-346
-196
+174
+152
+324
+194
 To what extend do agents believe eachother regardless of reputation?
 11
 0.0
 1
 
 SLIDER
-34
-204
-173
-237
+12
+202
+151
+235
 max-belief-factor
 max-belief-factor
 0
@@ -589,20 +623,20 @@ NIL
 HORIZONTAL
 
 TEXTBOX
-196
-209
-346
-237
+174
+207
+324
+235
 What is the maximum people will believe eachother?
 11
 0.0
 1
 
 SLIDER
-35
-251
-174
-284
+13
+249
+152
+282
 slander-ratio
 slander-ratio
 0
@@ -614,21 +648,21 @@ NIL
 HORIZONTAL
 
 TEXTBOX
-194
-251
-344
-279
+172
+249
+322
+277
 chance of deceptive agents lying during communication
 11
 0.0
 1
 
 PLOT
-11
-537
-340
-703
-Average reputation
+883
+188
+1212
+354
+Average reputation score
 time
 score
 0.0
@@ -639,8 +673,72 @@ true
 false
 "" ""
 PENS
-"average" 1.0 0 -16777216 true "set-current-plot-pen \"average\"\n" "plot average-reputation"
+"average" 1.0 0 -16777216 true "" "plot average-reputation-score"
 "x-axis" 1.0 0 -7500403 true "set-plot-pen-color gray" "plot 0"
+
+PLOT
+885
+359
+1211
+509
+Average reputation length
+time
+length
+0.0
+100.0
+0.0
+50.0
+true
+false
+"" ""
+PENS
+"average" 1.0 0 -16777216 true "" "plot average-reputation-length-all-agents"
+"average-honest" 1.0 0 -13791810 true "" "plot average-reputation-length-honest-agents"
+"avergae-deceptive" 1.0 0 -2674135 true "" "plot average-reputation-length-deceptive-agents"
+
+MONITOR
+1221
+188
+1311
+233
+avg rep score
+average-reputation-score
+2
+1
+11
+
+MONITOR
+1220
+360
+1331
+405
+avg rep length all
+average-reputation-length-all-agents
+2
+1
+11
+
+MONITOR
+1221
+412
+1357
+457
+avg rep length honest
+average-reputation-length-honest-agents
+2
+1
+11
+
+MONITOR
+1221
+463
+1373
+508
+avg rep length deceptive
+average-reputation-length-deceptive-agents
+2
+1
+11
 
 @#$#@#$#@
 This model is modified from the Wolf Sheep Predation model.
