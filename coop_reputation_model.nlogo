@@ -64,6 +64,10 @@ to setup
 end
 
 to go
+  ; George - separator printen
+  print (word "-------- Tick " ticks " --------")
+
+
   ; stop the model if there are no people left
   if not any? deceptive-agents and not any? honest-agents [ user-message "Everyone perished" stop ]
   if count deceptive-agents > max-population or count honest-agents = 0 [ user-message "Deceptive agents have inherited the earth" stop ]
@@ -79,6 +83,17 @@ to go
   ask agents [
     eat-banana
     update-reputation-and-communicate
+  ]
+
+  ; George: CODE OM REPUTATIELIJSTEN TE PRINTEN
+  print (word "--- Reputatietabellen aan het einde van tick " ticks " ---")
+  ask agents [
+    let rep-list ""
+    foreach table:keys agent-reputations [
+      [id] ->
+      set rep-list (word rep-list id ": " table:get agent-reputations id ", ")
+    ]
+    print (word who ": " rep-list)
   ]
 
   ; keep separate from above, ask executes all functions per agent
@@ -347,14 +362,19 @@ end
 
 to hatch-baby ; turtle-context
 ; idea: 10% chance to hatch baby from another breed
-  hatch 1 [
-    setxy 0 0
-    rt random-float 360 fd random 15
-  	set energy initial-energy-blob
-  	set my-tree nobody
-    set agent-reputations table:make ; do kids inherit the reputation table of their parents?
-    set age 0
-  ]   ; hatch an offspring and move it forward some steps
+
+  ; George: slechts 10% van de gevallen hatchen zodat poppetjes langer leven.
+  if (random-float 1) <= 0.01 [
+
+    hatch 1 [
+      setxy 0 0
+      rt random-float 360 fd random 15
+      	set energy initial-energy-blob
+      	set my-tree nobody
+      set agent-reputations table:make ; do kids inherit the reputation table of their parents?
+      set age 0
+    ]   ; hatch an offspring and move it forward some steps
+  ]
 end
 
 ; do not initialize trees too close to the border of the screen
@@ -489,7 +509,7 @@ initial-number-deceptive-agents
 initial-number-deceptive-agents
 0
 250
-30.0
+2.0
 1
 1
 NIL
@@ -504,7 +524,7 @@ initial-number-honest-agents
 initial-number-honest-agents
 0
 250
-30.0
+2.0
 1
 1
 NIL
@@ -634,7 +654,7 @@ credulity-factor
 credulity-factor
 0
 1
-0.8
+0.5
 0.1
 1
 NIL
@@ -659,7 +679,7 @@ max-belief-factor
 max-belief-factor
 0
 1
-0.9
+0.5
 0.1
 1
 NIL
@@ -684,7 +704,7 @@ slander-ratio
 slander-ratio
 0
 1
-0.8
+0.0
 0.1
 1
 NIL
