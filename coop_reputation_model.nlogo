@@ -302,7 +302,7 @@ end
 
 to communicate-about [reputated-agent reputation]
   ; deceptive agents can lie!
-  if breed = deceptive-agents and random-float 1 < slander-ratio [
+  if breed = deceptive-agents and reputation > 0 and random-float 1 < slander-ratio [
     set reputation (reputation * -1)
   ]
 
