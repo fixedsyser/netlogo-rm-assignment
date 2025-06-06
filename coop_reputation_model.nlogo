@@ -359,7 +359,7 @@ to-report random-buffered-ycor [buffer]
   report random-float (2 * (max-pycor - buffer)) - (max-pycor - buffer)
 end
 
-to-report average-reputation-score
+to-report average-reputation-score-all-agents
   let total-score 0
   let reputation-count 0
 
@@ -368,6 +368,42 @@ to-report average-reputation-score
       let score table:get agent-reputations id
       set total-score total-score + score
       set reputation-count reputation-count + 1 ]
+  ]
+
+  if reputation-count = 0 [ report 0 ] ; avoid divide by zero
+  report total-score / reputation-count
+end
+
+to-report average-reputation-score-of-honest-agents
+  let total-score 0
+  let reputation-count 0
+
+  ask agents [
+    foreach table:keys agent-reputations [ [id] ->
+      if any? honest-agents  with [who = id] [
+        let score table:get agent-reputations id
+        set total-score total-score + score
+        set reputation-count reputation-count + 1
+      ]
+    ]
+  ]
+
+  if reputation-count = 0 [ report 0 ] ; avoid divide by zero
+  report total-score / reputation-count
+end
+
+to-report average-reputation-score-of-deceptive-agents
+  let total-score 0
+  let reputation-count 0
+
+  ask agents [
+    foreach table:keys agent-reputations [ [id] ->
+      if any? deceptive-agents  with [who = id] [
+        let score table:get agent-reputations id
+        set total-score total-score + score
+        set reputation-count reputation-count + 1
+      ]
+    ]
   ]
 
   if reputation-count = 0 [ report 0 ] ; avoid divide by zero
@@ -641,7 +677,7 @@ slander-ratio
 slander-ratio
 0
 1
-0.0
+0.5
 0.1
 1
 NIL
@@ -673,8 +709,10 @@ true
 false
 "" ""
 PENS
-"average" 1.0 0 -16777216 true "" "plot average-reputation-score"
+"average" 1.0 0 -16777216 true "" "plot average-reputation-score-all-agents"
 "x-axis" 1.0 0 -7500403 true "set-plot-pen-color gray" "plot 0"
+"average-honest" 1.0 0 -13791810 true "" "plot average-reputation-score-of-honest-agents"
+"average-deceptive3" 1.0 0 -2674135 true "" "plot average-reputation-score-of-deceptive-agents"
 
 PLOT
 885
@@ -699,10 +737,10 @@ PENS
 MONITOR
 1221
 188
-1311
+1327
 233
-avg rep score
-average-reputation-score
+avg rep score all
+average-reputation-score-all-agents
 2
 1
 11
@@ -736,6 +774,28 @@ MONITOR
 508
 avg rep length deceptive
 average-reputation-length-deceptive-agents
+2
+1
+11
+
+MONITOR
+1221
+241
+1353
+286
+avg rep score honest
+average-reputation-score-of-honest-agents
+2
+1
+11
+
+MONITOR
+1221
+294
+1369
+339
+avg rep score deceptive
+average-reputation-score-of-deceptive-agents
 2
 1
 11
