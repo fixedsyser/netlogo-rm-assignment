@@ -117,23 +117,18 @@ to form-teams-and-assign-to-trees
 
   print-reputation-scores "Reputatietabellen voor start teams vormen"
 
+  let score-rank 0 ;  0 is highest score, 1 is second highest score, ...
   while [count lonely-agents >= 2] [
     let proposer-agent one-of lonely-agents with [proposal-counter = proposal-form-teams-attempt]
+
 
     ; when all agents tried to make teams
     if proposer-agent = nobody [
       ; evaluate if teams were created, sometimes all agents have different favorite partners and no teams could be formed
       ; to avoid an infinite loop and no progress in making teams, create a random team
       if not team-created-by-match? [
-        print (word "Available agents: " count lonely-agents)
-        let agent1 one-of lonely-agents
-        set lonely-agents lonely-agents with [self != agent1]
-        let agent2 one-of lonely-agents
-        set lonely-agents lonely-agents with [self != agent2]
-        set teams lput (list agent1 agent2) teams
-        ; shout out random team creation
-        print (word "NO MUTUAL FAVORITE AGENTS DETERMINED AVOID INFINITE LOOP - RANDOM TEAM RANDOM TEAM RANDOM TEAM RANDOM TEAM RANDOM TEAM RANDOM TEAM RANDOM")
-        print (word "Available agents: " count lonely-agents)
+        set score-rank score-rank + 1 ; by increasing score-rank use next best score to select candidates
+        print (word "NO MUTUAL FAVORITE AGENTS DETERMINED AVOID INFINITE LOOP - Score rank increased to " score-rank " ***********************************************************************")
       ]
 
       ; if all agents tried to make teams, increase proposal counter and start all over
@@ -143,45 +138,47 @@ to form-teams-and-assign-to-trees
       set proposer-agent one-of lonely-agents with [proposal-counter = proposal-form-teams-attempt]
     ]
 
-    ; random team creation might cause number of available agents be less than 2
-    if count lonely-agents >= 2 [
-      print ("")
-      print (word "Proposer agent " [who] of proposer-agent " tries to form a team ")
+    print ("")
+    print (word "Proposer agent " [who] of proposer-agent " tries to form a team ")
 
-      ask proposer-agent [set proposal-counter proposal-counter + 1]
-      let best-candidates get-best-candidates proposer-agent lonely-agents
-      let shuffled-best-candidates shuffle (sort best-candidates)
-      let found-partner? false
+    ask proposer-agent [set proposal-counter proposal-counter + 1]
+    let best-candidates get-best-candidates proposer-agent lonely-agents score-rank
+    let shuffled-best-candidates shuffle (sort best-candidates)
+    let found-partner? false
 
-      ; loop through shuffeled best candidates, to simulate random selection of the candidate, until a team-mate is found
-      while [not found-partner? and length shuffled-best-candidates > 0] [
-        ; select first candidate from shuffeled candidates
-        let best-candidate-agent first shuffled-best-candidates
-        print(word "   Candidate " [who] of best-candidate-agent ": check if proposer agent " [who] of proposer-agent" is also favorite")
+    ; loop through shuffeled best candidates, to simulate random selection of the candidate, until a team-mate is found
+    while [not found-partner? and length shuffled-best-candidates > 0] [
+      ; select first candidate from shuffeled candidates
+      let best-candidate-agent first shuffled-best-candidates
+      print(word "   Candidate " [who] of best-candidate-agent ": check if proposer agent " [who] of proposer-agent" is also favorite")
 
-        ; determine the favorites of the candidate agent
-        let candidate-best-partners get-best-candidates best-candidate-agent lonely-agents
+      ; determine the favorites of the candidate agent
+      let candidate-best-partners get-best-candidates best-candidate-agent lonely-agents score-rank
 
-        ; if proposer agent is in the candidate favorites, form a team
-        ifelse any? candidate-best-partners with [self = proposer-agent] [
-          set teams lput (list proposer-agent best-candidate-agent) teams
-          set team-created-by-match? true
-          set found-partner? true
-          ; remove team-mates from the available agents
-          set lonely-agents lonely-agents with [self != proposer-agent and self != best-candidate-agent]
-
-          print (word "TEAM MATCH "  [who] of proposer-agent " - " [who] of best-candidate-agent)
-        ] [
-          ; when no team could be formed, remove candidate from best-candiates
-          set shuffled-best-candidates but-first shuffled-best-candidates
+      ; if proposer agent is in the candidate favorites, form a team
+      ifelse any? candidate-best-partners with [self = proposer-agent] [
+        set teams lput (list proposer-agent best-candidate-agent) teams
+        set team-created-by-match? true
+        set found-partner? true
+        ifelse score-rank > 0 [
+          print (word "TEAM MATCHED "  [who] of proposer-agent " - " [who] of best-candidate-agent " WITH INCREASED SCORE RANK: " score-rank " ***********************************************************************")
+          set score-rank 0
+          print ("RESET SCORE RANK TO 0")
+        ][
+          print (word "TEAM MATCHED "  [who] of proposer-agent " - " [who] of best-candidate-agent)
         ]
 
+        ; remove team-mates from the available agents
+        set lonely-agents lonely-agents with [self != proposer-agent and self != best-candidate-agent]
+      ] [
+        ; when no team could be formed, remove candidate from best-candiates
+        set shuffled-best-candidates but-first shuffled-best-candidates
       ]
+    ]
 
-      ; when proposer agent was not bale to form a team
-      if not found-partner? [
-        print ("NO TEAM MATCH")
-      ]
+    ; when proposer agent was not bale to form a team
+    if not found-partner? [
+      print ("NO TEAM MATCH")
     ]
   ]
 
@@ -196,27 +193,38 @@ to-report get-reputation-score [agent1 agent2]
 end
 
 ; get best candidates of an agent out of available agents and by selecting on highest score in reputation list
-to-report get-best-candidates [agent lonely-agents]
+to-report get-best-candidates [agent lonely-agents score-rank]
   let teammate-candidates lonely-agents with [self != agent]
 
-  ; determine max score. Note: (list teammate-candidates) does not work, needed to use sort to create a list
+  ; determine target score. Note: (list teammate-candidates) does not work, needed to use sort to create a list
   let candidates-list (sort teammate-candidates)
   let scores map [candidate -> get-reputation-score agent candidate] candidates-list
-  let max-score max scores
+  let sorted-unique-scores reverse sort remove-duplicates scores
+
+  ; limit score-rank to avoid out-of-index errors
+  if score-rank > length sorted-unique-scores - 1 [
+    set score-rank (length sorted-unique-scores) - 1
+  ]
+  print (word "   sorted-unique-scores: " sorted-unique-scores " get scores with rank " score-rank)
+
+  let target-score item score-rank sorted-unique-scores
+  print (word "   target-score : " target-score )
 
   ; select canditates with max score
   let best-candidates teammate-candidates with [
-    get-reputation-score agent self = max-score
+    get-reputation-score agent self >= target-score
   ]
 
-  print (word "   Agent " [who] of agent " best candidates with score " max-score ": " map [a -> [who] of a] sort best-candidates)
+  print (word "   Agent " [who] of agent " best candidates with score " target-score ": " map [a -> [who] of a] sort best-candidates)
   report best-candidates
 end
 
 ; assign teams and when possible the last-agent to trees
 to assign-to-trees [teams last-agent]
-  let shuffled-teams shuffle teams
   print ("")
+  print (word "#Teams: " (length teams) ", last agent: " last-agent)
+
+  let shuffled-teams shuffle teams
   while [length shuffled-teams > 0 and any? trees with [available-space?]] [
       let available-tree one-of trees with [available-space?]
       let team first shuffled-teams
@@ -764,7 +772,7 @@ slander-ratio
 slander-ratio
 0
 1
-0.0
+1.0
 0.1
 1
 NIL
