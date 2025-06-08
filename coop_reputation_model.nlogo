@@ -6,8 +6,8 @@ breed [ deceptive-agents deceptive-agent ] ; deceptive agents
 breed [ honest-agents honest-agent ] ; honest agents
 
 trees-own [ available-space? ]
-deceptive-agents-own [ energy my-tree agent-reputations age]
-honest-agents-own [ energy my-tree agent-reputations age]
+deceptive-agents-own [ energy my-tree agent-reputations age proposal-counter]
+honest-agents-own [ energy my-tree agent-reputations age proposal-counter]
 
 to-report agents
   report (turtle-set deceptive-agents honest-agents)
@@ -45,6 +45,7 @@ to setup
     setxy 0 0
     set agent-reputations table:make
     set age 0
+    set proposal-counter 0
   ]
 
   create-honest-agents initial-number-honest-agents
@@ -58,6 +59,7 @@ to setup
     setxy 0 0
     set agent-reputations table:make
     set age 0
+    set proposal-counter 0
   ]
 
   reset-ticks
@@ -75,6 +77,7 @@ to go
 
   ask agents [
     set age age + 1
+    set proposal-counter 0
   ]
 
   form-teams-and-assign-to-trees
@@ -85,16 +88,7 @@ to go
     update-reputation-and-communicate
   ]
 
-  ; George: CODE OM REPUTATIELIJSTEN TE PRINTEN
-  print (word "--- Reputatietabellen aan het einde van tick " ticks " ---")
-  ask agents [
-    let rep-list ""
-    foreach table:keys agent-reputations [
-      [id] ->
-      set rep-list (word rep-list id ": " table:get agent-reputations id ", ")
-    ]
-    print (word who ": " rep-list)
-  ]
+  print-reputation-scores word "Reputatietabellen aan het einde van tick " ticks
 
   ; keep separate from above, ask executes all functions per agent
   ask agents [
@@ -110,104 +104,148 @@ to go
   tick
 end
 
+; form teams by match on mutual favorite agents
+to form-teams-and-assign-to-trees
+  let available-trees trees with [available-space?]
+  let lonely-agents agents with [my-tree = nobody]
+  let proposal-form-teams-attempt 0 ;
+  let teams []
+  let team-created-by-match? false
+
+  print ("")
+  print ("TEAMS VORMEN")
+
+  print-reputation-scores "Reputatietabellen voor start teams vormen"
+
+  while [count lonely-agents >= 2] [
+    let proposer-agent one-of lonely-agents with [proposal-counter = proposal-form-teams-attempt]
+
+    ; when all agents tried to make teams
+    if proposer-agent = nobody [
+      ; evaluate if teams were created, sometimes all agents have different favorite partners and no teams could be formed
+      ; to avoid an infinite loop and no progress in making teams, create a random team
+      if not team-created-by-match? [
+        print (word "Available agents: " count lonely-agents)
+        let agent1 one-of lonely-agents
+        set lonely-agents lonely-agents with [self != agent1]
+        let agent2 one-of lonely-agents
+        set lonely-agents lonely-agents with [self != agent2]
+        set teams lput (list agent1 agent2) teams
+        ; shout out random team creation
+        print (word "NO MUTUAL FAVORITE AGENTS DETERMINED AVOID INFINITE LOOP - RANDOM TEAM RANDOM TEAM RANDOM TEAM RANDOM TEAM RANDOM TEAM RANDOM TEAM RANDOM")
+        print (word "Available agents: " count lonely-agents)
+      ]
+
+      ; if all agents tried to make teams, increase proposal counter and start all over
+      print(word "ATTEMPT " proposal-form-teams-attempt " is done, teams created by a match?:" team-created-by-match?)
+      set proposal-form-teams-attempt proposal-form-teams-attempt + 1
+      set team-created-by-match? false
+      set proposer-agent one-of lonely-agents with [proposal-counter = proposal-form-teams-attempt]
+    ]
+
+    ; random team creation might cause number of available agents be less than 2
+    if count lonely-agents >= 2 [
+      print ("")
+      print (word "Proposer agent " [who] of proposer-agent " tries to form a team ")
+
+      ask proposer-agent [set proposal-counter proposal-counter + 1]
+      let best-candidates get-best-candidates proposer-agent lonely-agents
+      let shuffled-best-candidates shuffle (sort best-candidates)
+      let found-partner? false
+
+      ; loop through shuffeled best candidates, to simulate random selection of the candidate, until a team-mate is found
+      while [not found-partner? and length shuffled-best-candidates > 0] [
+        ; select first candidate from shuffeled candidates
+        let best-candidate-agent first shuffled-best-candidates
+        print(word "   Candidate " [who] of best-candidate-agent ": check if proposer agent " [who] of proposer-agent" is also favorite")
+
+        ; determine the favorites of the candidate agent
+        let candidate-best-partners get-best-candidates best-candidate-agent lonely-agents
+
+        ; if proposer agent is in the candidate favorites, form a team
+        ifelse any? candidate-best-partners with [self = proposer-agent] [
+          set teams lput (list proposer-agent best-candidate-agent) teams
+          set team-created-by-match? true
+          set found-partner? true
+          ; remove team-mates from the available agents
+          set lonely-agents lonely-agents with [self != proposer-agent and self != best-candidate-agent]
+
+          print (word "TEAM MATCH "  [who] of proposer-agent " - " [who] of best-candidate-agent)
+        ] [
+          ; when no team could be formed, remove candidate from best-candiates
+          set shuffled-best-candidates but-first shuffled-best-candidates
+        ]
+
+      ]
+
+      ; when proposer agent was not bale to form a team
+      if not found-partner? [
+        print ("NO TEAM MATCH")
+      ]
+    ]
+  ]
+
+  let last-agent one-of lonely-agents
+  assign-to-trees teams last-agent
+end
+
+; get reputation score of agent2 using agent1 reputions when not found return 0
 to-report get-reputation-score [agent1 agent2]
   let default-reputation-score 0
   report table:get-or-default [agent-reputations] of agent1 [who] of agent2 default-reputation-score
 end
 
-; this function is based on the Reciprocal Reputation Matching algorithm,
-; it prioritizes mutual trust before falling back to one-sided trust and exploration
-to-report select-teammate [agent lonely-agents]
-  ; exploration is currently disabled - fallback already handles this especially in early ticks
-  let epsilon 0
-  let trust-threshold 0 ; trust agents with score > 0
-
+; get best candidates of an agent out of available agents and by selecting on highest score in reputation list
+to-report get-best-candidates [agent lonely-agents]
   let teammate-candidates lonely-agents with [self != agent]
 
-  ; optional exploration currently skipped
-  if random-float 1 < epsilon  [
-    ; explore: select a random lonely agent
-    let partner one-of teammate-candidates
-    let agent-to-partner-rep  get-reputation-score agent partner
-    let partner-to-agent-rep  get-reputation-score partner agent
-    print (word "[EARLY EXPLORE RANDOM] Agent " [who] of agent " - partner " [who] of partner
-      ": Reputations a->p " agent-to-partner-rep ", p->a " partner-to-agent-rep)
-    report partner
+  ; determine max score. Note: (list teammate-candidates) does not work, needed to use sort to create a list
+  let candidates-list (sort teammate-candidates)
+  let scores map [candidate -> get-reputation-score agent candidate] candidates-list
+  let max-score max scores
+
+  ; select canditates with max score
+  let best-candidates teammate-candidates with [
+    get-reputation-score agent self = max-score
   ]
 
-  ; step 1: try to find trusted agents from lonely-agents which are alive and available
-  let one-sided-trusted-teammate-candidates teammate-candidates with [
-    get-reputation-score agent self > trust-threshold
-  ]
-
-  ; mutual trust: both agents trust each other
-  let mutual-candidates one-sided-trusted-teammate-candidates with [
-    get-reputation-score self agent > trust-threshold
-  ]
-
-  ; select best match of trusted agents
-  if any? mutual-candidates [
-    let partner one-of mutual-candidates with-max [
-      get-reputation-score agent self + get-reputation-score self agent
-    ]
-    let agent-to-partner-rep  get-reputation-score agent partner
-    let partner-to-agent-rep  get-reputation-score partner agent
-    print (word "[MUTUAL] Agent " [who] of agent " - partner " [who] of partner
-      ": Reputations a->p " agent-to-partner-rep ", p->a " partner-to-agent-rep)
-    report partner
-  ]
-
-  ; step 2: fallback to select best one-sided trusted agent
-  if any? one-sided-trusted-teammate-candidates[
-    ; select best candidate
-    let partner one-of one-sided-trusted-teammate-candidates with-max [
-      get-reputation-score agent self
-    ]
-    let agent-to-partner-rep  get-reputation-score agent partner
-    let partner-to-agent-rep  get-reputation-score partner agent
-    print (word "[ONE-SIDED] Agent " [who] of agent " - partner " [who] of partner
-      ": Reputations a->p " agent-to-partner-rep ", p->a " partner-to-agent-rep)
-    report partner
-  ]
-
-  ; step 3: fallback to random selection
-  let partner one-of teammate-candidates
-  let agent-to-partner-rep  get-reputation-score agent partner
-  let partner-to-agent-rep  get-reputation-score partner agent
-  print (word "[RANDOM] Agent " [who] of agent " - partner " [who] of partner
-    ": Reputations a->p " agent-to-partner-rep ", p->a " partner-to-agent-rep)
-  report partner
+  print (word "   Agent " [who] of agent " best candidates with score " max-score ": " map [a -> [who] of a] sort best-candidates)
+  report best-candidates
 end
 
-to form-teams-and-assign-to-trees
-  let available-trees trees with [available-space?]
-  let lonely-agents agents with [my-tree = nobody]
+; assign teams and when possible the last-agent to trees
+to assign-to-trees [teams last-agent]
+  let shuffled-teams shuffle teams
+  print ("")
+  while [length shuffled-teams > 0 and any? trees with [available-space?]] [
+      let available-tree one-of trees with [available-space?]
+      let team first shuffled-teams
 
-  ; team up agents while at least 2 are left and there are available trees
-  while [count lonely-agents >= 2 and any? available-trees] [
-    let agent1 one-of lonely-agents
-    let agent2 select-teammate agent1 lonely-agents
-    let available-tree one-of available-trees
+      foreach team [
+        member ->
+        if member != nobody [
+          ask member [ set my-tree available-tree ]
+        ]
+      ]
 
-    ; assign agents to the same tree
-    ask agent1 [set my-tree available-tree]
-    ask agent2 [set my-tree available-tree]
-    ask available-tree [set available-space? false]
+      print (word "Assign team " team " to tree " available-tree)
 
-    ; update sets
-    set available-trees available-trees with [self != available-tree]
-    set lonely-agents lonely-agents with [self != agent1 and self != agent2]
+      set shuffled-teams but-first shuffled-teams
+      ask available-tree [set available-space? false]
   ]
 
-  ; assign last agent to an available tree
-  if count lonely-agents = 1 and any? available-trees [
-    let last-agent one-of lonely-agents
-    let available-tree one-of available-trees
+  ; when trees are available and a single agent exists, assign last agent to tree
+  let available-tree one-of trees with [available-space?]
 
-    ask last-agent [set my-tree available-tree]
+  if available-tree != nobody and last-agent != nobody [
+    ask last-agent [ set my-tree available-tree ]
     ask available-tree [set available-space? false]
+    print (word "Assign last agent " last-agent " to tree " available-tree)
   ]
 end
+
+
+
 
 to move-until-settled
   let step-count 0
@@ -339,7 +377,14 @@ end
 
 to survive-or-die ; turtle-context
   if energy < 1 and random-float 1 >= energy [
+    let died-agent-id [who] of self
+    ; clean up agent-reputations to keep overview in print statements
+    ask agents [
+      table:remove agent-reputations died-agent-id
+    ]
+
     die
+
   ]
 end
 
@@ -373,6 +418,7 @@ to hatch-baby ; turtle-context
       	set my-tree nobody
       set agent-reputations table:make ; do kids inherit the reputation table of their parents?
       set age 0
+      set proposal-counter 0
     ]   ; hatch an offspring and move it forward some steps
   ]
 end
@@ -471,6 +517,20 @@ to-report average-reputation-length-honest-agents
 
   if agent-count = 0 [ report 0 ] ; avoid divide by zero
   report total-length / agent-count
+end
+
+to print-reputation-scores [title]
+  ; George: CODE OM REPUTATIELIJSTEN TE PRINTEN todo naar functie
+  print""
+  print (word "--- " title " ---")
+  ask agents [
+    let rep-list ""
+    foreach table:keys agent-reputations [
+      [id] ->
+      set rep-list (word rep-list id ": " table:get agent-reputations id ", ")
+    ]
+    print (word who ": " rep-list)
+  ]
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
