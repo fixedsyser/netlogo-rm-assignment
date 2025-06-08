@@ -364,7 +364,7 @@ to hatch-baby ; turtle-context
 ; idea: 10% chance to hatch baby from another breed
 
   ; George: slechts 10% van de gevallen hatchen zodat poppetjes langer leven.
-  if (random-float 1) <= 0.01 [
+  if (random-float 1) <= 0.1 [
 
     hatch 1 [
       setxy 0 0
