@@ -6,8 +6,8 @@ breed [ deceptive-agents deceptive-agent ] ; deceptive agents
 breed [ honest-agents honest-agent ] ; honest agents
 
 trees-own [ available-space? ]
-deceptive-agents-own [ energy my-tree agent-reputations age proposal-counter]
-honest-agents-own [ energy my-tree agent-reputations age proposal-counter]
+deceptive-agents-own [ energy my-tree agent-reputations tmp-reputations age proposal-counter]
+honest-agents-own [ energy my-tree agent-reputations tmp-reputations age proposal-counter]
 
 to-report agents
   report (turtle-set deceptive-agents honest-agents)
@@ -44,6 +44,7 @@ to setup
     set my-tree nobody
     setxy 0 0
     set agent-reputations table:make
+    set tmp-reputations table:make
     set age 0
     set proposal-counter 0
   ]
@@ -58,6 +59,7 @@ to setup
     set my-tree nobody
     setxy 0 0
     set agent-reputations table:make
+    set tmp-reputations table:make
     set age 0
     set proposal-counter 0
   ]
@@ -85,7 +87,11 @@ to go
 
   ask agents [
     eat-banana
-    update-reputation-and-communicate
+    communicate
+  ]
+
+  ask agents [
+    update-reputation
   ]
 
   print-reputation-scores word "Reputatietabellen aan het einde van tick " ticks
@@ -295,6 +301,10 @@ to eat-banana ; turtle-context
     ]
     [
       if shared_tree_honest_agent != nobody [
+        ; add this experience to personal agent-reputations table
+        if reputation-spread != -1 [
+          table:put agent-reputations [who] of shared_tree_honest_agent 1
+        ]
         ifelse breed = honest-agents [
           ; I'm an honest agent and you are an honest agent, I receive 2 EP
           set energy energy + 2
@@ -306,6 +316,10 @@ to eat-banana ; turtle-context
         ]
       ]
       if shared_tree_deceptive-agent != nobody [
+        ; add this experience to personal agent-reputations table
+        if reputation-spread != -1 [
+          table:put agent-reputations [who] of shared_tree_deceptive-agent -1
+        ]
         ifelse breed = honest-agents [
           ; I'm an honest agent and you are a deceptive agent, I receive 1 EP
           set energy energy + 1
@@ -321,56 +335,38 @@ to eat-banana ; turtle-context
   ]
 end
 
-
-to update-reputation-and-communicate
-  let teammate one-of other agents with [my-tree = [my-tree] of myself]
-  if teammate != nobody and reputation-spread != -1 [
-  ; there is a teammate and memory is not disabled
-    let reputation-score 0
-    ifelse [breed] of teammate = honest-agents [
-      ; teammate was honest
-      set reputation-score 1
-    ]
-    [ ; teammate was deceptive
-      set reputation-score -1
-    ]
-    update-reputation teammate reputation-score
-    if reputation-spread != 0 [
-      communicate-about teammate reputation-score
+to communicate
+  if reputation-spread > 0 [
+    let orig-table agent-reputations
+    ; make sure reputation-spread does not exceed the amount of potential listeners
+    let #-to-tell min list reputation-spread count other agents
+    ; tell n random turtles about their interaction with a turtle
+    ask n-of #-to-tell other agents [
+      create-tmp-rep-table myself orig-table
     ]
   ]
 end
 
-to update-reputation [reputated-agent reputation-score]
-  ; add or update reputation score
-  table:put agent-reputations [who] of reputated-agent precision reputation-score 2
-end
+to create-tmp-rep-table [src-agent src-table]
+  ; print (word " Source agent " src-agent " shares with Agent " self " his reputation table " src-table)
+  let reputation-src-agent table:get-or-default agent-reputations [who] of src-agent 0
+  ;print (word " Tmp-Reputations of " self " before sharing " tmp-reputations ", Reputation of source agent: " reputation-src-agent)
 
-to communicate-about [reputated-agent reputation]
-  ; deceptive agents can lie!
-  if breed = deceptive-agents and reputation > 0 and random-float 1 < slander-ratio [
-    set reputation (reputation * -1)
+  foreach ( table:keys src-table) [
+    [key] -> (
+      if key != [who] of self [
+        let value table:get src-table key
+        if [breed] of src-agent = deceptive-agents and value > 0 and random-float 1 < slander-ratio [
+          set value (value * -1)
+        ]
+        let belief-reputation precision ((belief-factor reputation-src-agent) * value) 2
+        let known-value table:get-or-default tmp-reputations key 0
+        table:put tmp-reputations key (known-value + belief-reputation)
+      ]
+    )
   ]
-
-  let potential-listeners other agents with [self != reputated-agent]
-  ; make sure reputation-spread does not exceed the amount of potential listeners
-  let #-to-tell min list reputation-spread count potential-listeners
-  ; tell n random turtles about their interaction with a turtle
-  ask n-of #-to-tell potential-listeners [
-    ; get reputation of the agent communicating
-    let reputation-src-agent table:get-or-default agent-reputations [who] of myself 0
-    let reputation-target-agent table:get-or-default agent-reputations [who] of reputated-agent 0
-    ; calculate reputation with belief factor
-    let factored-reputation calculate-reputation reputation-src-agent reputation-target-agent reputation
-    update-reputation reputated-agent factored-reputation
-  ]
-end
-
-to-report calculate-reputation [rep-src-agent rep-target-agent communicated-rep]
-  let belief-reputation precision ((belief-factor rep-src-agent) * communicated-rep) 2
-  let factored-reputation rep-target-agent + belief-reputation
-  ; cap the reputation between -1 and 1
-  report max list -1 (min list 1 factored-reputation)
+  ; print (word " Tmp-Reputations of " self " after sharing: " tmp-reputations)
+  ; print("")
 end
 
 to-report belief-factor [rep-src-agent]
@@ -383,6 +379,21 @@ to-report belief-factor [rep-src-agent]
     ]
 
   report min list belief-factor-value max-belief-factor
+end
+
+
+to update-reputation
+  if reputation-spread > 0 [
+    foreach ( table:keys tmp-reputations) [
+      [key] ->
+        let tmp-value table:get tmp-reputations key
+        let known-value table:get-or-default agent-reputations key 0
+        let reputation known-value + tmp-value
+        set reputation max list -1 (min list 1 reputation)
+        table:put agent-reputations key reputation
+    ]
+    set tmp-reputations table:make
+  ]
 end
 
 to survive-or-die ; turtle-context
@@ -426,7 +437,8 @@ to hatch-baby ; turtle-context
       rt random-float 360 fd random 15
       	set energy initial-energy-blob
       	set my-tree nobody
-      set agent-reputations table:make ; do kids inherit the reputation table of their parents?
+      set agent-reputations table:make
+      set tmp-reputations table:make
       set age 0
       set proposal-counter 0
     ]   ; hatch an offspring and move it forward some steps
@@ -699,7 +711,7 @@ reputation-spread
 reputation-spread
 -1
 10
-10.0
+2.0
 1
 1
 NIL
