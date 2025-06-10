@@ -374,14 +374,16 @@ to-report calculate-reputation [rep-src-agent rep-target-agent communicated-rep]
 end
 
 to-report belief-factor [rep-src-agent]
-  ifelse rep-src-agent > 0 [
-    report credulity-factor + (max-belief-factor - credulity-factor ) * rep-src-agent
-  ]
-  [
-    report credulity-factor * (rep-src-agent + 1)
-  ]
-end
+  let belief-factor-value
+    ifelse-value rep-src-agent > 0 [
+      credulity-factor + (max-belief-factor - credulity-factor ) * rep-src-agent
+    ]
+    [
+      credulity-factor * (rep-src-agent + 1)
+    ]
 
+  report min list belief-factor-value max-belief-factor
+end
 
 to survive-or-die ; turtle-context
   if energy < 1 and random-float 1 >= energy [
