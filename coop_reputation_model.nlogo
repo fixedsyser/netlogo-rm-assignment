@@ -1,4 +1,4 @@
-extensions [table]
+extensions [table profiler]
 globals [ max-population initial-energy-blob ]
 
 breed [ trees tree ] ; banana trees
@@ -69,7 +69,7 @@ end
 
 to go
   ; George - separator printen
-  print (word "-------- Tick " ticks " --------")
+  printx (word "-------- Tick " ticks " --------")
 
 
   ; stop the model if there are no people left
@@ -118,8 +118,8 @@ to form-teams-and-assign-to-trees
   let teams []
   let team-created-by-match? false
 
-  print ("")
-  print ("TEAMS VORMEN")
+  printx ("")
+  printx ("TEAMS VORMEN")
 
   print-reputation-scores "Reputatietabellen voor start teams vormen"
 
@@ -134,18 +134,18 @@ to form-teams-and-assign-to-trees
       ; to avoid an infinite loop and no progress in making teams, create a random team
       if not team-created-by-match? [
         set score-rank score-rank + 1 ; by increasing score-rank use next best score to select candidates
-        print (word "NO MUTUAL FAVORITE AGENTS DETERMINED AVOID INFINITE LOOP - Score rank increased to " score-rank " ***********************************************************************")
+        printx (word "NO MUTUAL FAVORITE AGENTS DETERMINED AVOID INFINITE LOOP - Score rank increased to " score-rank " ***********************************************************************")
       ]
 
       ; if all agents tried to make teams, increase proposal counter and start all over
-      print(word "ATTEMPT " proposal-form-teams-attempt " is done, teams created by a match?:" team-created-by-match?)
+      printx(word "ATTEMPT " proposal-form-teams-attempt " is done, teams created by a match?:" team-created-by-match?)
       set proposal-form-teams-attempt proposal-form-teams-attempt + 1
       set team-created-by-match? false
       set proposer-agent one-of lonely-agents with [proposal-counter = proposal-form-teams-attempt]
     ]
 
-    print ("")
-    print (word "Proposer agent " [who] of proposer-agent " tries to form a team ")
+    printx ("")
+    printx (word "Proposer agent " [who] of proposer-agent " tries to form a team ")
 
     ask proposer-agent [set proposal-counter proposal-counter + 1]
     let best-candidates get-best-candidates proposer-agent lonely-agents score-rank
@@ -156,7 +156,7 @@ to form-teams-and-assign-to-trees
     while [not found-partner? and length shuffled-best-candidates > 0] [
       ; select first candidate from shuffeled candidates
       let best-candidate-agent first shuffled-best-candidates
-      print(word "   Candidate " [who] of best-candidate-agent ": check if proposer agent " [who] of proposer-agent" is also favorite")
+      ;printx(word "   Candidate " [who] of best-candidate-agent ": check if proposer agent " [who] of proposer-agent" is also favorite")
 
       ; determine the favorites of the candidate agent
       let candidate-best-partners get-best-candidates best-candidate-agent lonely-agents score-rank
@@ -167,11 +167,11 @@ to form-teams-and-assign-to-trees
         set team-created-by-match? true
         set found-partner? true
         ifelse score-rank > 0 [
-          print (word "TEAM MATCHED "  [who] of proposer-agent " - " [who] of best-candidate-agent " WITH INCREASED SCORE RANK: " score-rank " ***********************************************************************")
+          printx (word "TEAM MATCHED "  [who] of proposer-agent " - " [who] of best-candidate-agent " WITH INCREASED SCORE RANK: " score-rank " ***********************************************************************")
           set score-rank 0
-          print ("RESET SCORE RANK TO 0")
+          printx ("RESET SCORE RANK TO 0")
         ][
-          print (word "TEAM MATCHED "  [who] of proposer-agent " - " [who] of best-candidate-agent)
+          printx (word "TEAM MATCHED "  [who] of proposer-agent " - " [who] of best-candidate-agent)
         ]
 
         ; remove team-mates from the available agents
@@ -184,7 +184,7 @@ to form-teams-and-assign-to-trees
 
     ; when proposer agent was not bale to form a team
     if not found-partner? [
-      print ("NO TEAM MATCH")
+      printx ("NO TEAM MATCH")
     ]
   ]
 
@@ -211,24 +211,24 @@ to-report get-best-candidates [agent lonely-agents score-rank]
   if score-rank > length sorted-unique-scores - 1 [
     set score-rank (length sorted-unique-scores) - 1
   ]
-  print (word "   sorted-unique-scores: " sorted-unique-scores " get scores with rank " score-rank)
+  printx (word "   sorted-unique-scores: " sorted-unique-scores " get scores with rank " score-rank)
 
   let target-score item score-rank sorted-unique-scores
-  print (word "   target-score : " target-score )
+  printx (word "   target-score : " target-score )
 
   ; select canditates with max score
   let best-candidates teammate-candidates with [
     get-reputation-score agent self >= target-score
   ]
 
-  print (word "   Agent " [who] of agent " best candidates with score " target-score ": " map [a -> [who] of a] sort best-candidates)
+  printx (word "   Agent " [who] of agent " best candidates with score " target-score ": " map [a -> [who] of a] sort best-candidates)
   report best-candidates
 end
 
 ; assign teams and when possible the last-agent to trees
 to assign-to-trees [teams last-agent]
-  print ("")
-  print (word "#Teams: " (length teams) ", last agent: " last-agent)
+  printx ("")
+  printx (word "#Teams: " (length teams) ", last agent: " last-agent)
 
   let shuffled-teams shuffle teams
   while [length shuffled-teams > 0 and any? trees with [available-space?]] [
@@ -242,7 +242,7 @@ to assign-to-trees [teams last-agent]
         ]
       ]
 
-      print (word "Assign team " team " to tree " available-tree)
+      printx (word "Assign team " team " to tree " available-tree)
 
       set shuffled-teams but-first shuffled-teams
       ask available-tree [set available-space? false]
@@ -254,7 +254,7 @@ to assign-to-trees [teams last-agent]
   if available-tree != nobody and last-agent != nobody [
     ask last-agent [ set my-tree available-tree ]
     ask available-tree [set available-space? false]
-    print (word "Assign last agent " last-agent " to tree " available-tree)
+    printx (word "Assign last agent " last-agent " to tree " available-tree)
   ]
 end
 
@@ -297,7 +297,7 @@ to eat-banana ; turtle-context
     ifelse shared_tree_honest_agent = nobody and shared_tree_deceptive-agent = nobody [
       ; A single agent receives 1.75 EP
       set energy energy + 1.75
-      ;print (word self " was alone and now has " energy " energy")
+      ;printx (word self " was alone and now has " energy " energy")
     ]
     [
       if shared_tree_honest_agent != nobody [
@@ -308,11 +308,11 @@ to eat-banana ; turtle-context
         ifelse breed = honest-agents [
           ; I'm an honest agent and you are an honest agent, I receive 2 EP
           set energy energy + 2
-          ;print (word self " had another honest agent and now has " energy " energy")
+          ;printx (word self " had another honest agent and now has " energy " energy")
         ]
         [ ; I'm a deceptive agent and you are a honest agent, I receive 3 EP
           set energy energy + 3
-          ;print (word self " fought a honest agent and now has " energy " energy")
+          ;printx (word self " fought a honest agent and now has " energy " energy")
         ]
       ]
       if shared_tree_deceptive-agent != nobody [
@@ -323,12 +323,12 @@ to eat-banana ; turtle-context
         ifelse breed = honest-agents [
           ; I'm an honest agent and you are a deceptive agent, I receive 1 EP
           set energy energy + 1
-          ;print (word self "fought a deceptive-agent and now has " energy "energy")
+          ;printx (word self "fought a deceptive-agent and now has " energy "energy")
         ]
         [
           ; I'm a deceptive agent and you are a deceptive agent, I receive 1.5 EP
           set energy energy + 1.5
-          ;print (word self " fought another deceptive agent and now has " energy " energy")
+          ;printx (word self " fought another deceptive agent and now has " energy " energy")
         ]
       ]
     ]
@@ -348,9 +348,9 @@ to communicate
 end
 
 to create-tmp-rep-table [src-agent src-table]
-  ; print (word " Source agent " src-agent " shares with Agent " self " his reputation table " src-table)
+  ; printx (word " Source agent " src-agent " shares with Agent " self " his reputation table " src-table)
   let reputation-src-agent table:get-or-default agent-reputations [who] of src-agent 0
-  ;print (word " Tmp-Reputations of " self " before sharing " tmp-reputations ", Reputation of source agent: " reputation-src-agent)
+  ;printx (word " Tmp-Reputations of " self " before sharing " tmp-reputations ", Reputation of source agent: " reputation-src-agent)
 
   foreach ( table:keys src-table) [
     [key] -> (
@@ -361,12 +361,12 @@ to create-tmp-rep-table [src-agent src-table]
         ]
         let belief-reputation precision ((belief-factor reputation-src-agent) * value) 2
         let known-value table:get-or-default tmp-reputations key 0
-        table:put tmp-reputations key (known-value + belief-reputation)
+        table:put tmp-reputations key (precision (known-value + belief-reputation) 2)
       ]
     )
   ]
-  ; print (word " Tmp-Reputations of " self " after sharing: " tmp-reputations)
-  ; print("")
+  ; printx (word " Tmp-Reputations of " self " after sharing: " tmp-reputations)
+  ; printx("")
 end
 
 to-report belief-factor [rep-src-agent]
@@ -543,15 +543,21 @@ end
 
 to print-reputation-scores [title]
   ; George: CODE OM REPUTATIELIJSTEN TE PRINTEN todo naar functie
-  print""
-  print (word "--- " title " ---")
+  printx""
+  printx (word "--- " title " ---")
   ask agents [
     let rep-list ""
     foreach table:keys agent-reputations [
       [id] ->
       set rep-list (word rep-list id ": " table:get agent-reputations id ", ")
     ]
-    print (word who ": " rep-list)
+    printx (word who ": " rep-list)
+  ]
+end
+
+to printx [message]
+  if print-enabled? [
+    print message
   ]
 end
 @#$#@#$#@
@@ -591,7 +597,7 @@ initial-number-deceptive-agents
 initial-number-deceptive-agents
 0
 250
-2.0
+5.0
 1
 1
 NIL
@@ -606,7 +612,7 @@ initial-number-honest-agents
 initial-number-honest-agents
 0
 250
-2.0
+5.0
 1
 1
 NIL
@@ -711,7 +717,7 @@ reputation-spread
 reputation-spread
 -1
 10
-2.0
+4.0
 1
 1
 NIL
@@ -961,6 +967,34 @@ mean [ age ] of deceptive-agents
 2
 1
 11
+
+BUTTON
+206
+310
+277
+343
+Profiler
+setup                  ;; set up the model\nprofiler:start         ;; start profiling\nrepeat 30 [ go ]       ;; run something you want to measure\nprofiler:stop          ;; stop profiling\nprint profiler:report  ;; view the results\nprofiler:reset     
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+SWITCH
+183
+351
+300
+384
+print-enabled?
+print-enabled?
+1
+1
+-1000
 
 @#$#@#$#@
 This model is modified from the Wolf Sheep Predation model.
