@@ -361,7 +361,7 @@ to create-tmp-rep-table [src-agent src-table]
         ]
         let belief-reputation precision ((belief-factor reputation-src-agent) * value) 2
         let known-value table:get-or-default tmp-reputations key 0
-        table:put tmp-reputations key (precision (known-value + belief-reputation) 2)
+        table:put tmp-reputations key (known-value + belief-reputation)
       ]
     )
   ]
@@ -389,7 +389,7 @@ to update-reputation
         let tmp-value table:get tmp-reputations key
         let known-value table:get-or-default agent-reputations key 0
         let reputation known-value + tmp-value
-        set reputation max list -1 (min list 1 reputation)
+        set reputation precision (max list -1 (min list 1 reputation)) 2
         table:put agent-reputations key reputation
     ]
     set tmp-reputations table:make
