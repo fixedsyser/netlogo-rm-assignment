@@ -85,6 +85,9 @@ to go
   form-teams-and-assign-to-trees
   move-until-settled
 
+  printx""
+  printx (word "--- Communicate ---")
+
   ask agents [
     eat-banana
     communicate
@@ -340,8 +343,12 @@ to communicate
     let orig-table agent-reputations
     ; make sure reputation-spread does not exceed the amount of potential listeners
     let #-to-tell min list reputation-spread count other agents
+    let listeners n-of #-to-tell other agents
+    ; log wie je informatie geeft
+    let listener-ids map [a -> [who] of a] (list listeners)
+    printx (word who " --> " listener-ids)
     ; tell n random turtles about their interaction with a turtle
-    ask n-of #-to-tell other agents [
+    ask listeners [
       create-tmp-rep-table myself orig-table
     ]
   ]
