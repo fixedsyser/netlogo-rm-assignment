@@ -6,8 +6,8 @@ breed [ deceptive-agents deceptive-agent ] ; deceptive agents
 breed [ honest-agents honest-agent ] ; honest agents
 
 trees-own [ available-space? ]
-deceptive-agents-own [ energy my-tree agent-reputations tmp-reputations age proposal-counter]
-honest-agents-own [ energy my-tree agent-reputations tmp-reputations age proposal-counter]
+deceptive-agents-own [ energy my-tree agent-reputations tmp-reputations age proposal-counter behaves-honest?]
+honest-agents-own [ energy my-tree agent-reputations tmp-reputations age proposal-counter behaves-honest?]
 
 to-report agents
   report (turtle-set deceptive-agents honest-agents)
@@ -27,9 +27,9 @@ to setup
   create-trees number-of-trees
   [
     set shape "tree"
-    set color orange
+    set color yellow
     set size 2
-    set label-color yellow - 2
+    set label-color yellow - 1
     set available-space? true
     setxy random-buffered-xcor buffer random-buffered-ycor buffer
   ]
@@ -47,6 +47,7 @@ to setup
     set tmp-reputations table:make
     set age 0
     set proposal-counter 0
+    set behaves-honest? false
   ]
 
   create-honest-agents initial-number-honest-agents
@@ -62,6 +63,7 @@ to setup
     set tmp-reputations table:make
     set age 0
     set proposal-counter 0
+    set behaves-honest? true
   ]
 
   reset-ticks
@@ -80,6 +82,10 @@ to go
   ask agents [
     set age age + 1
     set proposal-counter 0
+  ]
+
+  ask deceptive-agents [
+    will-behave-honestly?
   ]
 
   form-teams-and-assign-to-trees
@@ -111,6 +117,13 @@ to go
   ]
 
   tick
+end
+
+to will-behave-honestly?
+  ifelse random-float 1 > deception-intensity [
+      set behaves-honest? true
+  ]
+  [ set behaves-honest? false ]
 end
 
 ; form teams by match on mutual favorite agents
@@ -294,21 +307,20 @@ end
 
 to eat-banana ; turtle-context
   if my-tree != nobody  [
- 		  let shared_tree_honest_agent one-of other honest-agents with [my-tree = [my-tree] of myself]
-  		let shared_tree_deceptive-agent one-of other deceptive-agents with [my-tree = [my-tree] of myself]
+ 		let shared-tree-agent one-of other agents with [my-tree = [my-tree] of myself]
 
-    ifelse shared_tree_honest_agent = nobody and shared_tree_deceptive-agent = nobody [
+    ifelse shared-tree-agent = nobody [
       ; A single agent receives 1.75 EP
       set energy energy + 1.75
       ;printx (word self " was alone and now has " energy " energy")
     ]
     [
-      if shared_tree_honest_agent != nobody [
-        ; add this experience to personal agent-reputations table
+      ifelse [behaves-honest?] of shared-tree-agent [
+        ; add this positive experience to personal agent-reputations table
         if reputation-spread != -1 [
-          table:put agent-reputations [who] of shared_tree_honest_agent 1
+          table:put agent-reputations [who] of shared-tree-agent 1
         ]
-        ifelse breed = honest-agents [
+        ifelse behaves-honest? [
           ; I'm an honest agent and you are an honest agent, I receive 2 EP
           set energy energy + 2
           ;printx (word self " had another honest agent and now has " energy " energy")
@@ -318,12 +330,12 @@ to eat-banana ; turtle-context
           ;printx (word self " fought a honest agent and now has " energy " energy")
         ]
       ]
-      if shared_tree_deceptive-agent != nobody [
-        ; add this experience to personal agent-reputations table
+      [
+        ; add this negative experience to personal agent-reputations table
         if reputation-spread != -1 [
-          table:put agent-reputations [who] of shared_tree_deceptive-agent -1
+          table:put agent-reputations [who] of shared-tree-agent -1
         ]
-        ifelse breed = honest-agents [
+        ifelse behaves-honest? [
           ; I'm an honest agent and you are a deceptive agent, I receive 1 EP
           set energy energy + 1
           ;printx (word self "fought a deceptive-agent and now has " energy "energy")
@@ -641,10 +653,10 @@ NIL
 HORIZONTAL
 
 BUTTON
-13
-302
-74
-347
+18
+349
+79
+394
 setup
 setup
 NIL
@@ -658,10 +670,10 @@ NIL
 1
 
 BUTTON
-80
-302
-141
-347
+85
+349
+146
+394
 go
 go
 T
@@ -976,10 +988,10 @@ mean [ age ] of deceptive-agents
 11
 
 BUTTON
-206
-310
-277
-343
+46
+407
+117
+440
 Profiler
 setup                  ;; set up the model\nprofiler:start         ;; start profiling\nrepeat 30 [ go ]       ;; run something you want to measure\nprofiler:stop          ;; stop profiling\nprint profiler:report  ;; view the results\nprofiler:reset     
 NIL
@@ -993,15 +1005,40 @@ NIL
 1
 
 SWITCH
-183
-351
-300
-384
+184
+357
+301
+390
 print-enabled?
 print-enabled?
 1
 1
 -1000
+
+SLIDER
+13
+294
+152
+327
+deception-intensity
+deception-intensity
+0
+1
+1.0
+0.1
+1
+NIL
+HORIZONTAL
+
+TEXTBOX
+172
+294
+322
+322
+chance of deceptive agent actually being deceptive
+11
+0.0
+1
 
 @#$#@#$#@
 This model is modified from the Wolf Sheep Predation model.
