@@ -87,7 +87,6 @@ def plot_graph(df, filename, metadata_str):
 
 # === MAIN RUN ===
 if __name__ == "__main__":
-    # Folders maken als ze nog niet bestaan
     os.makedirs(INPUT_DIR, exist_ok=True)
     os.makedirs(IMPORTED_DIR, exist_ok=True)
     os.makedirs(GRAPH_DIR, exist_ok=True)
@@ -101,14 +100,29 @@ if __name__ == "__main__":
             print(f"[•] Verwerken: {file}")
 
             df = load_netlogo_csv(full_path)
-            metadata = extract_metadata(df)
             timestamp = file_creation_timestamp(full_path)
-            new_name = f"{timestamp} - {file}"
-            plot_graph(df, os.path.splitext(new_name)[0], metadata)
 
+            # Bepaal kolommen voor configuratie (tussen [run number] en [step])
+            start_idx = df.columns.get_loc("[run number]") + 1
+            end_idx = df.columns.get_loc("[step]")
+            config_cols = df.columns[start_idx:end_idx]
+
+            # Groepeer per unieke configuratie
+            grouped = df.groupby(list(config_cols))
+            for config_vals, subdf in grouped:
+                config_list = [str(v) for v in config_vals]
+                config_str = '-'.join(config_list)
+                metadata = extract_metadata(subdf)
+                base_filename = os.path.splitext(file)[0]
+                graph_name = f"{timestamp} - {base_filename} [{config_str}]"
+                plot_graph(subdf, graph_name, metadata)
+                print(f"[✓] Grafiek gegenereerd: {graph_name}.png")
+
+            # Verplaats originele CSV
+            new_name = f"{timestamp} - {file}"
             imported_path = os.path.join(IMPORTED_DIR, new_name)
             shutil.move(full_path, imported_path)
-            print(f"[✓] Klaar. Grafiek opgeslagen, bestand verplaatst naar 'imported'.\n")
+            print(f"[→] Bestand verplaatst naar 'imported'.\n")
 
         except Exception as e:
             print(f"[!] Fout bij verwerken van {file}: {e}\n")
