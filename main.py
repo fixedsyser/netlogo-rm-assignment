@@ -1,3 +1,18 @@
+########################################################################################################################
+# INSTRUCTIES
+# Run één keer om de folders aan te maken. Daarna moet je zorgen dat je netlogo outputs in de "Netlogo outputs"
+# terecht komen en dan kun je het programma weer draaien. Grafieken komen in "graphs" folder terecht.
+#
+# Afkortingen in de grafiektitel zijn:
+# - MBF = Max belief factor
+# - CF  = Credulity factor
+# - SR  = Slander ratio
+# - RS  = Reputation spread
+# - DI  = Deception intensity
+# - WRH = Win ratio honest/deceptive/(draw - indien Nash equilibrium na max stappen)
+########################################################################################################################
+
+
 import os
 import shutil
 import pandas as pd
@@ -18,7 +33,8 @@ def extract_metadata(df):
         "credulity-factor": "CF",
         "slander-ratio": "SR",
         "reputation-spread": "RS",
-        "number-of-trees": "NoT"
+        "number-of-trees": "NoT",
+        "deception-intensity": "DI"
     }
 
     start_idx = df.columns.get_loc("[run number]") + 1
@@ -29,7 +45,7 @@ def extract_metadata(df):
     output = []
     for k, v in zip(meta, values):
         k_clean = k.strip("[]")
-        if any(skip in k_clean for skip in ["print-enabled", "initial-number-honest-agents", "initial-number-deceptive-agents"]):
+        if any(skip in k_clean for skip in ["print-enabled", "initial-number-honest-agents", "initial-number-deceptive-agents", "number-of-trees"]):
             continue
         label = replacements.get(k_clean, k_clean)
         output.append(f"{label}: {v}")
@@ -58,6 +74,30 @@ def file_creation_timestamp(path):
     return datetime.fromtimestamp(created).strftime("%Y.%m.%d-%H.%M.%S")
 
 def plot_graph(df, filename, metadata_str):
+    # === Winstverdeling berekenen ===
+    eindstap_per_run = df.groupby("[run number]").last()
+    honest = eindstap_per_run["count honest-agents"]
+    deceptive = eindstap_per_run["count deceptive-agents"]
+
+    honest_wins = (honest > 0) & (deceptive == 0)
+    deceptive_wins = (deceptive > 0) & (honest == 0)
+    draws = ~(honest_wins | deceptive_wins)
+
+    h_count = honest_wins.sum()
+    d_count = deceptive_wins.sum()
+    draw_count = draws.sum()
+    total = len(eindstap_per_run)
+
+    # Statistiek-string opbouwen
+    if draw_count > 0:
+        wrh_str = f"WRH: {round(h_count/total*100)}%/{round(d_count/total*100)}%/{round(draw_count/total*100)}% ({h_count}/{d_count}/{draw_count})"
+    else:
+        wrh_str = f"WRH: {round(h_count/total*100)}%/{round(d_count/total*100)}% ({h_count}/{d_count})"
+
+    # Subtitel aanpassen
+    subtitle = f"{metadata_str} | {wrh_str}"
+
+    # === Grafiek tekenen ===
     df_grouped = df.groupby("[step]").agg({
         "count honest-agents": ['mean', 'std'],
         "count deceptive-agents": ['mean', 'std']
@@ -70,7 +110,7 @@ def plot_graph(df, filename, metadata_str):
     deceptive_std = df_grouped[("count deceptive-agents", "std")]
 
     plt.figure(figsize=(10, 6))
-    plt.title(f"{filename}\n{metadata_str}", fontsize=12)
+    plt.title(f"{filename}\n{subtitle}", fontsize=10)
     sns.lineplot(x=steps, y=honest_mean, label="Honest Agents", color="blue")
     plt.fill_between(steps, honest_mean - honest_std, honest_mean + honest_std, color="blue", alpha=0.2)
     sns.lineplot(x=steps, y=deceptive_mean, label="Deceptive Agents", color="red")
@@ -79,11 +119,11 @@ def plot_graph(df, filename, metadata_str):
     plt.xlabel("Step")
     plt.ylabel("Agent Count")
     plt.legend()
-    plt.tight_layout()
 
     output_path = os.path.join(GRAPH_DIR, f"{filename}.png")
     plt.savefig(output_path)
     plt.close()
+
 
 # === MAIN RUN ===
 if __name__ == "__main__":
