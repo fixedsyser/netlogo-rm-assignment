@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE experiments SYSTEM "behaviorspace.dtd">
 <experiments>
-  <experiment name="Test 1 George" repetitions="10" runMetricsEveryStep="true">
+  <experiment name="Control Study" repetitions="20" runMetricsEveryStep="true">
     <setup>setup</setup>
     <go>go</go>
     <timeLimit steps="10000"/>
@@ -9,16 +9,16 @@
     <metric>count honest-agents</metric>
     <metric>count deceptive-agents</metric>
     <enumeratedValueSet variable="max-belief-factor">
-      <value value="0.5"/>
+      <value value="0"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="credulity-factor">
-      <value value="0.5"/>
+      <value value="0"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="slander-ratio">
-      <value value="1"/>
+      <value value="0"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="reputation-spread">
-      <value value="10"/>
+      <value value="-1"/>
     </enumeratedValueSet>
     <enumeratedValueSet variable="initial-number-honest-agents">
       <value value="2"/>
@@ -32,37 +32,10 @@
     <enumeratedValueSet variable="print-enabled?">
       <value value="false"/>
     </enumeratedValueSet>
-  </experiment>
-  <experiment name="Test 1 George (copy)" repetitions="20" runMetricsEveryStep="true">
-    <setup>setup</setup>
-    <go>go</go>
-    <timeLimit steps="1000"/>
-    <exitCondition>not any? deceptive-agents or not any? honest-agents</exitCondition>
-    <metric>count honest-agents</metric>
-    <metric>count deceptive-agents</metric>
-    <enumeratedValueSet variable="max-belief-factor">
-      <value value="1"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="credulity-factor">
-      <value value="0.5"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="slander-ratio">
-      <value value="1"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="reputation-spread">
-      <value value="10"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="initial-number-honest-agents">
-      <value value="20"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="initial-number-deceptive-agents">
-      <value value="20"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="number-of-trees">
-      <value value="30"/>
-    </enumeratedValueSet>
-    <enumeratedValueSet variable="print-enabled?">
-      <value value="false"/>
+    <enumeratedValueSet variable="deception-intensity">
+      <value value="0"/>
+      <value value="0.3"/>
+      <value value="0.8"/>
     </enumeratedValueSet>
   </experiment>
 </experiments>
