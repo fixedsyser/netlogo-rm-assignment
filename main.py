@@ -74,8 +74,29 @@ def file_creation_timestamp(path):
     return datetime.fromtimestamp(created).strftime("%Y.%m.%d-%H.%M.%S")
 
 def plot_graph(df, filename, metadata_str):
+    # === Runs aanvullen tot max step ===
+    run_col = "[run number]"
+    step_col = "[step]"
+    agent_cols = ["count honest-agents", "count deceptive-agents"]
+
+    max_step = df[step_col].max()
+
+    padded_rows = []
+    for run, run_df in df.groupby(run_col):
+        run_max = run_df[step_col].max()
+        if run_max < max_step:
+            missing_steps = list(range(run_max + 1, max_step + 1))
+            last_row = run_df.loc[run_df[step_col] == run_max].iloc[0]
+            for step in missing_steps:
+                pad_row = last_row.copy()
+                pad_row[step_col] = step
+                padded_rows.append(pad_row)
+
+    if padded_rows:
+        df = pd.concat([df, pd.DataFrame(padded_rows)], ignore_index=True)
+
     # === Winstverdeling berekenen ===
-    eindstap_per_run = df.groupby("[run number]").last()
+    eindstap_per_run = df.groupby(run_col).last()
     honest = eindstap_per_run["count honest-agents"]
     deceptive = eindstap_per_run["count deceptive-agents"]
 
