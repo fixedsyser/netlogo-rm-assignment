@@ -3,7 +3,8 @@
 # Run één keer om de folders aan te maken. Daarna moet je zorgen dat je netlogo outputs in de "Netlogo outputs"
 # terecht komen en dan kun je het programma weer draaien. Grafieken komen in "graphs" folder terecht.
 #
-# HEATMAP: Alleen gegenereerd als er PRECIES twee parameters zijn die variëren.
+# HEATMAP:   Alleen gegenereerd als er PRECIES twee parameters zijn die variëren.
+# BARCHARTS: Alleen gegenereerd als er PRECIES één parameter is die varieert.
 #
 # Afkortingen in de grafiektitel zijn:
 # - MBF = Max belief factor
@@ -22,6 +23,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from datetime import datetime
 from io import StringIO
+from statsmodels.stats.proportion import proportion_confint
+from matplotlib import colormaps
 
 # === CONFIG ===
 INPUT_DIR     = r".\Netlogo outputs"
@@ -30,29 +33,48 @@ GRAPH_DIR     = r".\graphs"
 
 # === UTILITIES ===
 def extract_metadata(df):
+    """
+    Geeft een string met alle metadata tussen [run number] en [step], met afkortingen, maar slaat kolommen over die
+    variëren (d.w.z. de variabele param(s) in de run, of in de ignore-lijst staan.
+    """
     replacements = {
         "max-belief-factor": "MBF",
         "credulity-factor": "CF",
         "slander-ratio": "SR",
         "reputation-spread": "RS",
         "number-of-trees": "NoT",
-        "deception-intensity": "DI"
+        "deception-intensity": "DI",
+        "initial-number-honest-agents": "INIT-HA",
+        "initial-number-deceptive-agents": "INIT-DA"
     }
 
-    start_idx = df.columns.get_loc("[run number]") + 1
-    end_idx = df.columns.get_loc("[step]")
-    meta = df.columns[start_idx:end_idx]
-    values = df.iloc[0, start_idx:end_idx]
+    # Kolommen die we altijd willen negeren, ongeacht of ze variëren
+    ignore_cols = [
+        #"initial-number-honest-agents",
+        #"initial-number-deceptive-agents",
+        "print-enabled?"
+    ]
 
-    output = []
-    for k, v in zip(meta, values):
-        k_clean = k.strip("[]")
-        if any(skip in k_clean for skip in ["print-enabled", "initial-number-honest-agents", "initial-number-deceptive-agents", "number-of-trees"]):
+    # 1) Bepaal de kolommen die metadata bevatten
+    start = df.columns.get_loc("[run number]") + 1
+    end   = df.columns.get_loc("[step]")
+    meta_cols = list(df.columns[start:end])
+
+    # 2) Filter de variërende kolommen
+    varied = [col for col in meta_cols if df[col].nunique() > 1]
+
+    # 3) Bouw metadata-string op uit vaste kolommen, zonder de blacklisted of variërende
+    values = df.iloc[0, start:end]
+    parts = []
+    for col, val in zip(meta_cols, values):
+        if col in varied or col in ignore_cols:
             continue
-        label = replacements.get(k_clean, k_clean)
-        output.append(f"{label}: {v}")
+        key = col.strip("[]")
+        label = replacements.get(key, key)
+        parts.append(f"{label}={val}")
 
-    return ', '.join(output)
+    return "  ".join(parts)
+
 
 def load_netlogo_csv(path):
     with open(path, encoding="utf-8") as f:
@@ -79,7 +101,6 @@ def plot_graph(df, filename, metadata_str):
     # === Runs aanvullen tot max step ===
     run_col = "[run number]"
     step_col = "[step]"
-    agent_cols = ["count honest-agents", "count deceptive-agents"]
 
     max_step = df[step_col].max()
 
@@ -147,17 +168,29 @@ def plot_graph(df, filename, metadata_str):
     plt.savefig(output_path)
     plt.close()
 
-
-# === MAIN RUN ===
+################################################################################################################
+# ============================================== MAIN RUN =====================================================#
+################################################################################################################
 if __name__ == "__main__":
     os.makedirs(INPUT_DIR, exist_ok=True)
     os.makedirs(IMPORTED_DIR, exist_ok=True)
     os.makedirs(GRAPH_DIR, exist_ok=True)
 
+    # Gebruik exact dezelfde colormap als de heatmap voor de bar graphs
+    cmap = colormaps["RdBu_r"]
+
+    # Pak de kleuren voor 100% honest (blauw) en 100% deceptive (rood)
+    honest_color = cmap(0.1)  # links van het spectrum = blauw
+    deceptive_color = cmap(0.9)  # rechts van het spectrum = rood
+
     files = [f for f in os.listdir(INPUT_DIR) if f.endswith(".csv")]
     print(f"[▶] Start verwerking van {len(files)} bestand(en) uit: {INPUT_DIR}")
 
-    config_cols = [] # Lege lijst voor het geval er geen files zijn en we alsnog de heatmap proberen te maken.
+    config_cols = [] # Lege lijst voor het geval er geen files zijn.
+
+    #
+    # Waarschuwing: heeeele lange for loop waarin we één file afhandelen.
+    #
 
     for file in files:
         try:
@@ -180,8 +213,172 @@ if __name__ == "__main__":
                 metadata = extract_metadata(subdf)
                 base_filename = os.path.splitext(file)[0]
                 graph_name = f"{timestamp} - {base_filename} [{config_str}]"
-                plot_graph(subdf, graph_name, metadata)
-                print(f"[✓] Grafiek gegenereerd: {graph_name}.png")
+
+                # George: aangezien we voor nu niet meer de 'lijn' grafieken doen, heb ik die code eruit gecommentarieerd.
+                # Kan altijd weer aangezet worden, maar het kostte hier te veel extra tijd om die steeds te genereren.
+
+                # plot_graph(subdf, graph_name, metadata)
+                # print(f"[✓] Grafiek gegenereerd: {graph_name}.png")
+
+            # Bepaal hoeveel parameters we variëren we in deze run / file (om te bepalen of we barcharts of heatmap maken)
+            varied_cols = [col for col in config_cols if df[col].nunique() > 1]
+            nr_of_changing_params = len(varied_cols)
+
+            ################################################################################################################
+            # Bar graphs: alleen als er exact één parameter varieert (anders is het een multidimensionale run en is onduidelijk
+            # waar je nou precies de effecten van wilt zien of in welke volgorde je de bars zet)
+            ################################################################################################################
+
+            if nr_of_changing_params == 1:
+                print(f"[📊] Bar charts genereren voor parameter: {varied_cols[0]}")
+                os.makedirs(os.path.join(GRAPH_DIR, "bar charts"), exist_ok=True)
+
+                bar_data = []
+                grouped = df.groupby(list(config_cols))
+                for config_vals, subdf in grouped:
+                    param_dict = dict(zip(config_cols, config_vals))
+                    eind = subdf.groupby("[run number]").last()
+                    honest = eind["count honest-agents"]
+                    deceptive = eind["count deceptive-agents"]
+
+                    honest_wins = (honest > 0) & (deceptive == 0)
+                    deceptive_wins = (deceptive > 0) & (honest == 0)
+
+                    h_count = honest_wins.sum()
+                    d_count = deceptive_wins.sum()
+                    total = len(eind)
+
+                    h_pct = (h_count / total) * 100
+                    d_pct = (d_count / total) * 100
+
+                    h_ci_low, h_ci_upp = proportion_confint(h_count, total, method="wilson")
+                    d_ci_low, d_ci_upp = proportion_confint(d_count, total, method="wilson")
+
+                    bar_data.append({
+                        varied_cols[0]: param_dict[varied_cols[0]],
+                        "Honest Win %": h_pct,
+                        "Deceptive Win %": d_pct,
+                        "h_ci_low": h_ci_low * 100,
+                        "h_ci_upp": h_ci_upp * 100,
+                        "d_ci_low": d_ci_low * 100,
+                        "d_ci_upp": d_ci_upp * 100
+                    })
+
+                df_bar = pd.DataFrame(bar_data)
+                df_bar_sorted = df_bar.sort_values(by=varied_cols[0])
+
+                ################################################################################################################
+                # Stacked bar graphs
+                ################################################################################################################
+                bar_width = 0.5  # 50% breedte = witruimte tussen bars
+
+                x = range(len(df_bar_sorted))
+                labels = df_bar_sorted[varied_cols[0]]
+
+                plt.figure(figsize=(10, 6))
+                plt.bar(x, df_bar_sorted["Honest Win %"], width=bar_width, label="Honest", color=honest_color)
+                plt.bar(x, df_bar_sorted["Deceptive Win %"],
+                        bottom=df_bar_sorted["Honest Win %"], width=bar_width, label="Deceptive", color=deceptive_color)
+
+                plt.xticks(ticks=x, labels=labels)
+                plt.xlabel(varied_cols[0])
+                plt.ylabel("Win Percentage")
+
+                metadata_str = extract_metadata(df)
+                plt.title(f"Stacked winrates for varying {varied_cols[0]}\n{metadata_str}")
+                plt.legend()
+
+                stacked_file = os.path.join(GRAPH_DIR, "bar charts",
+                                            f"{timestamp} - barchart_stacked_{varied_cols[0]}.png")
+                plt.savefig(stacked_file)
+                plt.close()
+                print(f"[✔] Stacked bar chart opgeslagen als: {stacked_file}")
+
+                ################################################################################################################
+                # Side-by-side bar graphs met confidence intervals per bar
+                ################################################################################################################
+                plt.figure(figsize=(10, 6))
+                x = range(len(df_bar_sorted))
+                bar_width = 0.3
+
+                plt.bar([i - bar_width/2 for i in x], df_bar_sorted["Honest Win %"],
+                        yerr=[df_bar_sorted["Honest Win %"] - df_bar_sorted["h_ci_low"],
+                              df_bar_sorted["h_ci_upp"] - df_bar_sorted["Honest Win %"]],
+                        width=bar_width, capsize=5, label="Honest", color=honest_color)
+
+                plt.bar([i + bar_width/2 for i in x], df_bar_sorted["Deceptive Win %"],
+                        yerr=[df_bar_sorted["Deceptive Win %"] - df_bar_sorted["d_ci_low"],
+                              df_bar_sorted["d_ci_upp"] - df_bar_sorted["Deceptive Win %"]],
+                        width=bar_width, capsize=5, label="Deceptive", color=deceptive_color)
+
+                plt.xticks(ticks=x, labels=labels)
+                plt.xlabel(varied_cols[0])
+                plt.ylabel("Win Percentage")
+                plt.title(f"Winrates with Wilson CI for varying {varied_cols[0]}\n{metadata_str}")
+                plt.legend()
+
+                grouped_file = os.path.join(GRAPH_DIR, "bar charts",
+                                            f"{timestamp} - barchart_grouped_{varied_cols[0]}.png")
+                plt.savefig(grouped_file)
+                plt.close()
+                print(f"[✔] Grouped bar chart opgeslagen als: {grouped_file}")
+
+
+            ################################################################################################################
+            # Heatmap: alleen als er exact twee parameters variëren (anders geen 2D heatmap mogelijk)
+            ################################################################################################################
+
+            if nr_of_changing_params == 2:
+                print(f"[🎨] Heatmap genereren op basis van parameters: {varied_cols[0]} en {varied_cols[1]}")
+                heatmap_data = []
+
+                # Stap 2: groepeer de data per unieke configuratieset
+                grouped = df.groupby(list(config_cols))
+                for config_vals, subdf in grouped:
+                    param_dict = dict(zip(config_cols, config_vals))  # zet configuratie in dictionaryvorm
+
+                    # Stap 3: pak per run de laatste rij (laatste timestep) van de simulatie
+                    eind = subdf.groupby("[run number]").last()
+                    honest = eind["count honest-agents"]
+                    deceptive = eind["count deceptive-agents"]
+
+                    # Stap 4: bepaal welke runs door honest agents gewonnen zijn
+                    honest_wins = (honest > 0) & (deceptive == 0)
+                    # Bepaal het percentage van honest wins
+                    h_ratio = honest_wins.sum() / len(honest_wins)
+
+                    # Voeg data toe aan de lijst voor de heatmap
+                    heatmap_data.append({
+                        varied_cols[0]: param_dict[varied_cols[0]],
+                        varied_cols[1]: param_dict[varied_cols[1]],
+                        "Honest Win %": round(h_ratio * 100)
+                    })
+
+                # Stap 5: zet lijst om naar dataframe en vorm pivot-tabel
+                df_heat = pd.DataFrame(heatmap_data)
+                heatmap_pivot = df_heat.pivot(index=varied_cols[1], columns=varied_cols[0], values="Honest Win %")
+
+                # Stap 6: genereer en save de heatmap
+                plt.figure(figsize=(8, 6))
+                sns.heatmap(
+                    heatmap_pivot,
+                    annot=True,  # Toon waardes in de cellen
+                    cmap="RdBu",  # Kleuren: rood = 100% honest, blauw = 0%
+                    center=50,  # Wit bij 50% (neutral)
+                    fmt=".0f",  # Afronden op hele getallen
+                    cbar_kws={"label": "Honest Win %"}  # Label voor de colorbar
+                )
+                metadata_str = extract_metadata(df)
+                plt.title(f"Winrates honest agents\n({varied_cols[0]} vs {varied_cols[1]})\n{metadata_str}")
+                plt.xlabel(varied_cols[0])
+                plt.ylabel(varied_cols[1])
+
+                # Zorg dat de subfolder bestaat en sla het bestand op
+                os.makedirs(os.path.join(GRAPH_DIR, "heatmaps"), exist_ok=True)
+                heatmap_file = os.path.join(GRAPH_DIR, "heatmaps", f"{timestamp} - heatmap_{varied_cols[0]}_vs_{varied_cols[1]}.png")
+                plt.savefig(heatmap_file)
+                plt.close()
+                print(f"[✔] Heatmap opgeslagen als: {heatmap_file}\n")
 
             # Verplaats originele CSV
             new_name = f"{timestamp} - {file}"
@@ -191,63 +388,6 @@ if __name__ == "__main__":
 
         except Exception as e:
             print(f"[!] Fout bij verwerken van {file}: {e}\n")
-
-    # === Extra HEATMAP als er precies twee varierende parameters zijn ===
-
-    # Stap 1: Bepaal welke configuratieparameters meer dan 1 unieke waarde hebben
-    varied_cols = [col for col in config_cols if df[col].nunique() > 1]
-
-    # Alleen doorgaan als er exact twee parameters variëren (anders geen 2D heatmap mogelijk)
-    if len(varied_cols) == 2:
-        print(f"[🎨] Heatmap gegenereerd op basis van parameters: {varied_cols[0]} en {varied_cols[1]}")
-        heatmap_data = []
-
-        # Stap 2: groepeer de data per unieke configuratieset
-        grouped = df.groupby(list(config_cols))
-        for config_vals, subdf in grouped:
-            param_dict = dict(zip(config_cols, config_vals))  # zet configuratie in dictionaryvorm
-
-            # Stap 3: pak per run de laatste rij (laatste timestep) van de simulatie
-            eind = subdf.groupby("[run number]").last()
-            honest = eind["count honest-agents"]
-            deceptive = eind["count deceptive-agents"]
-
-            # Stap 4: bepaal welke runs door honest agents gewonnen zijn
-            honest_wins = (honest > 0) & (deceptive == 0)
-            # Bepaal het percentage van honest wins
-            h_ratio = honest_wins.sum() / len(honest_wins)
-
-            # Voeg data toe aan de lijst voor de heatmap
-            heatmap_data.append({
-                varied_cols[0]: param_dict[varied_cols[0]],
-                varied_cols[1]: param_dict[varied_cols[1]],
-                "Honest Win %": round(h_ratio * 100)
-            })
-
-        # Stap 5: zet lijst om naar dataframe en vorm pivot-tabel
-        df_heat = pd.DataFrame(heatmap_data)
-        heatmap_pivot = df_heat.pivot(index=varied_cols[1], columns=varied_cols[0], values="Honest Win %")
-
-        # Stap 6: genereer en save de heatmap
-        plt.figure(figsize=(8, 6))
-        sns.heatmap(
-            heatmap_pivot,
-            annot=True,  # Toon waardes in de cellen
-            cmap="RdBu",  # Kleuren: rood = 100% honest, blauw = 0%
-            center=50,  # Wit bij 50% (neutral)
-            fmt=".0f",  # Afronden op hele getallen
-            cbar_kws={"label": "Honest Win %"}  # Label voor de colorbar
-        )
-        plt.title(f"Winrates honest agents\n({varied_cols[0]} vs {varied_cols[1]})")
-        plt.xlabel(varied_cols[0])
-        plt.ylabel(varied_cols[1])
-
-        # Zorg dat de subfolder bestaat en sla het bestand op
-        os.makedirs(os.path.join(GRAPH_DIR, "heatmaps"), exist_ok=True)
-        heatmap_file = os.path.join(GRAPH_DIR, "heatmaps", f"heatmap_{varied_cols[0]}_vs_{varied_cols[1]}.png")
-        plt.savefig(heatmap_file)
-        plt.close()
-        print(f"[✔] Heatmap opgeslagen als: {heatmap_file}\n")
 
     # Sluit af als alle bestanden zijn verwerkt
     print("[✔] Alle bestanden zijn verwerkt. Script beëindigd.")
