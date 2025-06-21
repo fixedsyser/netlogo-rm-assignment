@@ -3,6 +3,8 @@
 # Run één keer om de folders aan te maken. Daarna moet je zorgen dat je netlogo outputs in de "Netlogo outputs"
 # terecht komen en dan kun je het programma weer draaien. Grafieken komen in "graphs" folder terecht.
 #
+# HEATMAP: Alleen gegenereerd als er PRECIES twee parameters zijn die variëren.
+#
 # Afkortingen in de grafiektitel zijn:
 # - MBF = Max belief factor
 # - CF  = Credulity factor
@@ -155,6 +157,8 @@ if __name__ == "__main__":
     files = [f for f in os.listdir(INPUT_DIR) if f.endswith(".csv")]
     print(f"[▶] Start verwerking van {len(files)} bestand(en) uit: {INPUT_DIR}")
 
+    config_cols = [] # Lege lijst voor het geval er geen files zijn en we alsnog de heatmap proberen te maken.
+
     for file in files:
         try:
             full_path = os.path.join(INPUT_DIR, file)
@@ -188,4 +192,62 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"[!] Fout bij verwerken van {file}: {e}\n")
 
+    # === Extra HEATMAP als er precies twee varierende parameters zijn ===
+
+    # Stap 1: Bepaal welke configuratieparameters meer dan 1 unieke waarde hebben
+    varied_cols = [col for col in config_cols if df[col].nunique() > 1]
+
+    # Alleen doorgaan als er exact twee parameters variëren (anders geen 2D heatmap mogelijk)
+    if len(varied_cols) == 2:
+        print(f"[🎨] Heatmap gegenereerd op basis van parameters: {varied_cols[0]} en {varied_cols[1]}")
+        heatmap_data = []
+
+        # Stap 2: groepeer de data per unieke configuratieset
+        grouped = df.groupby(list(config_cols))
+        for config_vals, subdf in grouped:
+            param_dict = dict(zip(config_cols, config_vals))  # zet configuratie in dictionaryvorm
+
+            # Stap 3: pak per run de laatste rij (laatste timestep) van de simulatie
+            eind = subdf.groupby("[run number]").last()
+            honest = eind["count honest-agents"]
+            deceptive = eind["count deceptive-agents"]
+
+            # Stap 4: bepaal welke runs door honest agents gewonnen zijn
+            honest_wins = (honest > 0) & (deceptive == 0)
+            # Bepaal het percentage van honest wins
+            h_ratio = honest_wins.sum() / len(honest_wins)
+
+            # Voeg data toe aan de lijst voor de heatmap
+            heatmap_data.append({
+                varied_cols[0]: param_dict[varied_cols[0]],
+                varied_cols[1]: param_dict[varied_cols[1]],
+                "Honest Win %": round(h_ratio * 100)
+            })
+
+        # Stap 5: zet lijst om naar dataframe en vorm pivot-tabel
+        df_heat = pd.DataFrame(heatmap_data)
+        heatmap_pivot = df_heat.pivot(index=varied_cols[1], columns=varied_cols[0], values="Honest Win %")
+
+        # Stap 6: genereer en save de heatmap
+        plt.figure(figsize=(8, 6))
+        sns.heatmap(
+            heatmap_pivot,
+            annot=True,  # Toon waardes in de cellen
+            cmap="RdBu",  # Kleuren: rood = 100% honest, blauw = 0%
+            center=50,  # Wit bij 50% (neutral)
+            fmt=".0f",  # Afronden op hele getallen
+            cbar_kws={"label": "Honest Win %"}  # Label voor de colorbar
+        )
+        plt.title(f"Winrates honest agents\n({varied_cols[0]} vs {varied_cols[1]})")
+        plt.xlabel(varied_cols[0])
+        plt.ylabel(varied_cols[1])
+
+        # Zorg dat de subfolder bestaat en sla het bestand op
+        os.makedirs(os.path.join(GRAPH_DIR, "heatmaps"), exist_ok=True)
+        heatmap_file = os.path.join(GRAPH_DIR, "heatmaps", f"heatmap_{varied_cols[0]}_vs_{varied_cols[1]}.png")
+        plt.savefig(heatmap_file)
+        plt.close()
+        print(f"[✔] Heatmap opgeslagen als: {heatmap_file}\n")
+
+    # Sluit af als alle bestanden zijn verwerkt
     print("[✔] Alle bestanden zijn verwerkt. Script beëindigd.")
