@@ -405,7 +405,7 @@ to update-reputation
   if reputation-spread > 0 [
     foreach ( table:keys tmp-reputations) [
       [key] ->
-        let tmp-value table:get tmp-reputations key
+        let tmp-value (max list -1 (min list 1 table:get tmp-reputations key))
         let known-value table:get-or-default agent-reputations key 0
         let reputation known-value + tmp-value
         set reputation precision (max list -1 (min list 1 reputation)) 2
@@ -448,8 +448,8 @@ end
 to hatch-baby ; turtle-context
 ; idea: 10% chance to hatch baby from another breed
 
-  ; George: slechts 10% van de gevallen hatchen zodat poppetjes langer leven.
-  if (random-float 1) <= 0.1 [
+  ; George: slechts 33% van de gevallen hatchen zodat poppetjes langer leven.
+  if (random-float 1) <= 0.33 [
 
     hatch 1 [
       setxy 0 0
