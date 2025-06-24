@@ -25,6 +25,7 @@ from datetime import datetime
 from io import StringIO
 from statsmodels.stats.proportion import proportion_confint
 from matplotlib import colormaps
+from scipy.stats import binomtest
 
 # === CONFIG ===
 INPUT_DIR     = r".\Netlogo outputs"
@@ -235,6 +236,32 @@ if __name__ == "__main__":
 
                 bar_data = []
                 grouped = df.groupby(list(config_cols))
+
+                # Haal de eerste en laatste bar op uit grouped
+                grouped_list = list(grouped)
+                first_config_vals, first_subdf = grouped_list[0]
+                last_config_vals, last_subdf = grouped_list[-1]
+
+                # Bereken % honest wins voor baseline (eerste bar)
+                eind_baseline = first_subdf.groupby("[run number]").last()
+                honest_baseline = eind_baseline["count honest-agents"]
+                deceptive_baseline = eind_baseline["count deceptive-agents"]
+                honest_wins_baseline = (honest_baseline > 0) & (deceptive_baseline == 0)
+                h_pct_baseline = honest_wins_baseline.sum() / len(eind_baseline)
+
+                # Bereken % honest wins voor laatste bar
+                eind_last = last_subdf.groupby("[run number]").last()
+                honest_last = eind_last["count honest-agents"]
+                deceptive_last = eind_last["count deceptive-agents"]
+                honest_wins_last = (honest_last > 0) & (deceptive_last == 0)
+                h_pct_last = honest_wins_last.sum() / len(eind_last)
+
+                # Bepaal richting
+                if h_pct_last >= h_pct_baseline:
+                    alt = 'greater'
+                elif h_pct_last < h_pct_baseline:
+                    alt = 'less'
+
                 for config_vals, subdf in grouped:
                     param_dict = dict(zip(config_cols, config_vals))
                     eind = subdf.groupby("[run number]").last()
@@ -254,6 +281,8 @@ if __name__ == "__main__":
                     h_ci_low, h_ci_upp = proportion_confint(h_count, total, method="wilson")
                     d_ci_low, d_ci_upp = proportion_confint(d_count, total, method="wilson")
 
+                    p_val = binomtest(h_count, total, p=h_pct_baseline, alternative=alt).pvalue
+
                     bar_data.append({
                         varied_cols[0]: param_dict[varied_cols[0]],
                         "Honest Win %": h_pct,
@@ -261,7 +290,8 @@ if __name__ == "__main__":
                         "h_ci_low": h_ci_low * 100,
                         "h_ci_upp": h_ci_upp * 100,
                         "d_ci_low": d_ci_low * 100,
-                        "d_ci_upp": d_ci_upp * 100
+                        "d_ci_upp": d_ci_upp * 100,
+                        "p_value": p_val
                     })
 
                 df_bar = pd.DataFrame(bar_data)
@@ -279,6 +309,15 @@ if __name__ == "__main__":
                 plt.bar(x, df_bar_sorted["Honest Win %"], width=bar_width, label="Honest", color=honest_color)
                 plt.bar(x, df_bar_sorted["Deceptive Win %"],
                         bottom=df_bar_sorted["Honest Win %"], width=bar_width, label="Deceptive", color=deceptive_color)
+
+                for i, p in enumerate(df_bar_sorted["p_value"]):
+                    # Eerste bar is baseline overslaan
+                    if i >= 1:
+                        if p < 0.001 and p != 0:
+                            label = "p < 0.001"
+                        else:
+                            label = f"p = {p:.3f}"
+                        plt.text(i, 101, label, ha='center', fontsize=8)
 
                 plt.xticks(ticks=x, labels=labels)
                 plt.xlabel(varied_cols[0])
