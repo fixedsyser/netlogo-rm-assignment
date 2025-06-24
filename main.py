@@ -18,6 +18,8 @@
 
 import os
 import shutil
+
+import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -97,6 +99,12 @@ def load_netlogo_csv(path):
 def file_creation_timestamp(path):
     created = os.path.getctime(path)
     return datetime.fromtimestamp(created).strftime("%Y.%m.%d-%H.%M.%S")
+
+def get_cohen_h(p_baseline_pct, p_current_pct):
+    p_baseline = p_baseline_pct / 100
+    p_current = p_current_pct / 100
+    h = 2 * (np.arcsin(np.sqrt(p_baseline)) - np.arcsin(np.sqrt(p_current)))
+    return abs(h)
 
 def plot_graph(df, filename, metadata_str):
     # === Runs aanvullen tot max step ===
@@ -256,11 +264,14 @@ if __name__ == "__main__":
                 honest_wins_last = (honest_last > 0) & (deceptive_last == 0)
                 h_pct_last = honest_wins_last.sum() / len(eind_last)
 
-                # Bepaal richting
-                if h_pct_last >= h_pct_baseline:
+                # Bepaal toetsrichting; bij gelijke waarden geen voorkeur, dus two-sided
+                if h_pct_last > h_pct_baseline:
                     alt = 'greater'
                 elif h_pct_last < h_pct_baseline:
                     alt = 'less'
+                else:
+                    alt ='two-sided'
+
 
                 for config_vals, subdf in grouped:
                     param_dict = dict(zip(config_cols, config_vals))
@@ -282,6 +293,7 @@ if __name__ == "__main__":
                     d_ci_low, d_ci_upp = proportion_confint(d_count, total, method="wilson")
 
                     p_val = binomtest(h_count, total, p=h_pct_baseline, alternative=alt).pvalue
+                    h_val = get_cohen_h(h_pct_baseline, h_pct)
 
                     bar_data.append({
                         varied_cols[0]: param_dict[varied_cols[0]],
@@ -291,7 +303,8 @@ if __name__ == "__main__":
                         "h_ci_upp": h_ci_upp * 100,
                         "d_ci_low": d_ci_low * 100,
                         "d_ci_upp": d_ci_upp * 100,
-                        "p_value": p_val
+                        "p_value": p_val,
+                        "h_value": h_val
                     })
 
                 df_bar = pd.DataFrame(bar_data)
@@ -306,18 +319,25 @@ if __name__ == "__main__":
                 labels = df_bar_sorted[varied_cols[0]]
 
                 plt.figure(figsize=(10, 6))
+                plt.ylim(0, 107)
                 plt.bar(x, df_bar_sorted["Honest Win %"], width=bar_width, label="Honest", color=honest_color)
                 plt.bar(x, df_bar_sorted["Deceptive Win %"],
                         bottom=df_bar_sorted["Honest Win %"], width=bar_width, label="Deceptive", color=deceptive_color)
 
-                for i, p in enumerate(df_bar_sorted["p_value"]):
+                for i, row in df_bar_sorted.iterrows():
                     # Eerste bar is baseline overslaan
                     if i >= 1:
-                        if p < 0.001 and p != 0:
-                            label = "p < 0.001"
+                        p = row["p_value"]
+                        if p < 0.001:
+                            label_p = "p < 0.001"
                         else:
-                            label = f"p = {p:.3f}"
-                        plt.text(i, 101, label, ha='center', fontsize=8)
+                            label_p = f"p = {p:.3f}"
+
+                        h =  row["h_value"]
+                        label_h = f"h = {h:.2f}"
+
+                        plt.text(i, 104, label_p, ha='center', fontsize=8)
+                        plt.text(i, 101, label_h, ha='center', fontsize=8)
 
                 plt.xticks(ticks=x, labels=labels)
                 plt.xlabel(varied_cols[0])
