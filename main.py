@@ -233,6 +233,10 @@ if __name__ == "__main__":
             varied_cols = [col for col in config_cols if df[col].nunique() > 1]
             nr_of_changing_params = len(varied_cols)
 
+            # Aantal runs van de eerste config tellen om de runcount string op te bouwen
+            runs_per_config = df.groupby(list(config_cols))["[run number]"].nunique().iloc[0]
+            runcount_str = f"{runs_per_config} runs"
+
             ################################################################################################################
             # Bar graphs: alleen als er exact één parameter varieert (anders is het een multidimensionale run en is onduidelijk
             # waar je nou precies de effecten van wilt zien of in welke volgorde je de bars zet)
@@ -348,7 +352,7 @@ if __name__ == "__main__":
                 plt.legend()
 
                 stacked_file = os.path.join(GRAPH_DIR, "bar charts",
-                                            f"{timestamp} - barchart_stacked_{varied_cols[0]}.png")
+                                            f"{timestamp} - {runcount_str} - barchart_stacked_{varied_cols[0]}.png")
                 plt.savefig(stacked_file)
                 plt.close()
                 print(f"[✔] Stacked bar chart opgeslagen als: {stacked_file}")
@@ -377,7 +381,7 @@ if __name__ == "__main__":
                 plt.legend()
 
                 grouped_file = os.path.join(GRAPH_DIR, "bar charts",
-                                            f"{timestamp} - barchart_grouped_{varied_cols[0]}.png")
+                                            f"{timestamp} - {runcount_str} - barchart_grouped_{varied_cols[0]}.png")
                 plt.savefig(grouped_file)
                 plt.close()
                 print(f"[✔] Grouped bar chart opgeslagen als: {grouped_file}")
@@ -432,9 +436,12 @@ if __name__ == "__main__":
                 plt.xlabel(varied_cols[0])
                 plt.ylabel(varied_cols[1])
 
+                # Y-as inverteren zodat waarden van klein naar groot lopen
+                plt.gca().invert_yaxis()
+
                 # Zorg dat de subfolder bestaat en sla het bestand op
                 os.makedirs(os.path.join(GRAPH_DIR, "heatmaps"), exist_ok=True)
-                heatmap_file = os.path.join(GRAPH_DIR, "heatmaps", f"{timestamp} - heatmap_{varied_cols[0]}_vs_{varied_cols[1]}.png")
+                heatmap_file = os.path.join(GRAPH_DIR, "heatmaps", f"{timestamp} - {runcount_str} - heatmap_{varied_cols[0]}_vs_{varied_cols[1]}.png")
                 plt.savefig(heatmap_file)
                 plt.close()
                 print(f"[✔] Heatmap opgeslagen als: {heatmap_file}\n")
