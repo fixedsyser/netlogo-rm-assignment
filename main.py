@@ -100,11 +100,10 @@ def file_creation_timestamp(path):
     created = os.path.getctime(path)
     return datetime.fromtimestamp(created).strftime("%Y.%m.%d-%H.%M.%S")
 
-def get_cohen_h(p_baseline_pct, p_current_pct):
-    p_baseline = p_baseline_pct / 100
-    p_current = p_current_pct / 100
-    h = 2 * (np.arcsin(np.sqrt(p_baseline)) - np.arcsin(np.sqrt(p_current)))
-    return abs(h)
+def get_cohen_h(p_baseline, p_current):
+    h_value = 2 * (np.arcsin(np.sqrt(p_baseline)) - np.arcsin(np.sqrt(p_current)))
+    print(f"Baseline honest {p_baseline}, actual honest: {p_current}, h: {h_value}, abs h: {abs(h_value)}")
+    return abs(h_value)
 
 def plot_graph(df, filename, metadata_str):
     # === Runs aanvullen tot max step ===
@@ -259,19 +258,19 @@ if __name__ == "__main__":
                 honest_baseline = eind_baseline["count honest-agents"]
                 deceptive_baseline = eind_baseline["count deceptive-agents"]
                 honest_wins_baseline = (honest_baseline > 0) & (deceptive_baseline == 0)
-                h_pct_baseline = honest_wins_baseline.sum() / len(eind_baseline)
+                h_baseline = honest_wins_baseline.sum() / len(eind_baseline)
 
                 # Bereken % honest wins voor laatste bar
                 eind_last = last_subdf.groupby("[run number]").last()
                 honest_last = eind_last["count honest-agents"]
                 deceptive_last = eind_last["count deceptive-agents"]
                 honest_wins_last = (honest_last > 0) & (deceptive_last == 0)
-                h_pct_last = honest_wins_last.sum() / len(eind_last)
+                h_last = honest_wins_last.sum() / len(eind_last)
 
                 # Bepaal toetsrichting; bij gelijke waarden geen voorkeur, dus two-sided
-                if h_pct_last > h_pct_baseline:
+                if h_last > h_baseline:
                     alt = 'greater'
-                elif h_pct_last < h_pct_baseline:
+                elif h_last < h_baseline:
                     alt = 'less'
                 else:
                     alt ='two-sided'
@@ -290,14 +289,15 @@ if __name__ == "__main__":
                     d_count = deceptive_wins.sum()
                     total = len(eind)
 
-                    h_pct = (h_count / total) * 100
+                    h_val = h_count / total
+                    h_pct = h_val * 100
                     d_pct = (d_count / total) * 100
 
                     h_ci_low, h_ci_upp = proportion_confint(h_count, total, method="wilson")
                     d_ci_low, d_ci_upp = proportion_confint(d_count, total, method="wilson")
 
-                    p_val = binomtest(h_count, total, p=h_pct_baseline, alternative=alt).pvalue
-                    h_val = get_cohen_h(h_pct_baseline, h_pct)
+                    p_val = binomtest(h_count, total, p=h_baseline, alternative=alt).pvalue
+                    h_val = get_cohen_h(h_baseline, h_val)
 
                     bar_data.append({
                         varied_cols[0]: param_dict[varied_cols[0]],
