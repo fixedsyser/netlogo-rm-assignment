@@ -560,6 +560,24 @@ to-report average-reputation-length-honest-agents
   report total-length / agent-count
 end
 
+to-report average-age-honest-agents
+  let all-ages [age ] of honest-agents
+  if all-ages != [] [
+    report (mean all-ages)
+  ]
+  report 0
+end
+
+
+to-report average-age-deceptive-agents
+  let all-ages [ age ] of deceptive-agents
+  if all-ages != [] [
+    report (mean all-ages)
+  ]
+  report 0
+end
+
+
 to print-reputation-scores [title]
   ; George: CODE OM REPUTATIELIJSTEN TE PRINTEN todo naar functie
   printx""
