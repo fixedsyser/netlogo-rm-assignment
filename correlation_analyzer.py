@@ -1,12 +1,11 @@
+import os
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.preprocessing import StandardScaler
-from sklearn.decomposition import PCA
 
-def analyze_agent_simulation(df):
-    # Load and clean data
+
+def prepare_data(df):
     df.columns = [col.strip('[]"')
                   .replace('-', '_')
                   .replace('?', '')
@@ -18,7 +17,7 @@ def analyze_agent_simulation(df):
     df = df.drop(columns=['print_enabled'])
     
     # Get the last row (final timestep) for each run
-    eind = df.groupby("run number").last()
+    eind = df.groupby("run number").max()
     end_step = eind["step"]
     # Replace run numbers with their corresponding last step numbers
     df["run number"] = df["run number"].map(end_step)
@@ -40,22 +39,133 @@ def analyze_agent_simulation(df):
     # Use only varying columns
     numeric_df = numeric_df[varying_cols]
     
+    return numeric_df
+
+def create_correlation_matrix(numeric_df, save_path):
+    """Create and optionally save correlation matrix with alphabetical labels"""
     print(f"Analyzing {numeric_df.shape[0]} rows, {numeric_df.shape[1]} variables")
     
-    # 1. Correlation heatmap
+    # Sort columns alphabetically
+    sorted_cols = sorted(numeric_df.columns)
+    numeric_df_sorted = numeric_df[sorted_cols]
     
-    corr_matrix = numeric_df.corr(min_periods=2, numeric_only=True)
-    
+    # Calculate correlation matrix
+    corr_matrix = numeric_df_sorted.corr(min_periods=2, numeric_only=True)
+
     plt.figure(figsize=(10, 6))
     sns.heatmap(corr_matrix, annot=True, cmap='RdBu_r', center=0, fmt='.2f')
     plt.title('Correlation Matrix')
     plt.tight_layout()
+    plt.savefig(os.path.join(save_path, "correlation_matrix.png"))
+    plt.close()
+    print(f"[✔] Correlation Matrix opgeslagen als: {save_path}\n")    
+    return corr_matrix
 
+def create_scatterplots(numeric_df, save_path, corr_matrix=None, mode='strong', correlation_threshold=0.05):
+    """
+    Create scatterplots for variable pairs
+    
+    Args:
+        numeric_df: DataFrame with numeric data
+        corr_matrix: Pre-computed correlation matrix (optional)
+        mode: 'all' for all pairs, 'strong' for pairs above threshold
+        correlation_threshold: Minimum absolute correlation to include (default 0.05)
+        save_path: Path to save the plot
+    """
+    if corr_matrix is None:
+        # Sort columns alphabetically
+        sorted_cols = sorted(numeric_df.columns)
+        numeric_df_sorted = numeric_df[sorted_cols]
+        corr_matrix = numeric_df_sorted.corr(min_periods=2, numeric_only=True)
+    else:
+        # Use sorted dataframe
+        sorted_cols = sorted(numeric_df.columns)
+        numeric_df_sorted = numeric_df[sorted_cols]
+    
+    # Find pairs to plot
+    pairs_to_plot = []
+
+    # Plot all variable pairs
+    for i in range(len(corr_matrix.columns)):
+        for j in range(i+1, len(corr_matrix.columns)):
+            var1 = corr_matrix.columns[i]
+            var2 = corr_matrix.columns[j]
+            corr_val = corr_matrix.iloc[i, j]
+            match mode:
+                case 'all': # Plot all variable pairs
+                    pairs_to_plot.append((var1, var2, corr_val))
+                case 'strong': # Plot only pairs above correlation threshold
+                    if abs(corr_val) > correlation_threshold:
+                        pairs_to_plot.append((var1, var2, corr_val))
+                case 'run_length': # Only include pairs where var1 is run_length
+                    if var1 == 'run_length' or var2 == 'run_length':
+                        pairs_to_plot.append((var1, var2, corr_val))
+                case _:
+                    print(f"Invalid scatterplot mode: {mode}")
+                    return None
+
+    if not pairs_to_plot:
+        print(f"No variable pairs found with correlation > {correlation_threshold}")
+        return None
+    
+    print(f"\n🔍 Creating scatterplots for {len(pairs_to_plot)} variable pairs...")
+    
+    num_plots = len(pairs_to_plot)
+    cols = min(4, num_plots)
+    rows = (num_plots + cols - 1) // cols
+    fig, axes = plt.subplots(rows, cols, figsize=(5 * cols, 4 * rows))
+    # Handle single plot case
+    if num_plots == 1:
+        axes = [axes]
+    
+    # Create scatterplots
+    for idx, (var1, var2, corr) in enumerate(pairs_to_plot):
+        row = idx // cols
+        col = idx % cols
+        ax = axes[row, col] if rows > 1 else axes[col]
+        ax.scatter(numeric_df_sorted[var1], numeric_df_sorted[var2], alpha=0.6, s=30)
+        
+        # Add trend line
+        try:
+            z = np.polyfit(numeric_df_sorted[var1], numeric_df_sorted[var2], 1)
+            p = np.poly1d(z)
+            ax.plot(numeric_df_sorted[var1], p(numeric_df_sorted[var1]), "r--", alpha=0.8)
+        except:
+            pass  # Skip trend line if fitting fails
+        
+        ax.set_xlabel(var1)
+        ax.set_ylabel(var2)
+        ax.set_title(f'{var1} vs {var2}\nCorr: {corr:.3f}')
+        ax.grid(True, alpha=0.3)
+        
+        if (idx + 1) % 10 == 0:
+            print(f"Progress: {(idx + 1)}/{num_plots} plotted")
+    
+    # Hide empty subplots
+    for idx in range(num_plots, rows * cols):
+        row = idx // cols
+        col = idx % cols
+        ax = axes[row, col] if rows > 1 else axes[col]
+        ax.set_visible(False)
+        
+    
+    plt.tight_layout()
+    plt.savefig(os.path.join(save_path, f"{mode}_scatterplot.png"), dpi=300, bbox_inches='tight')
+    plt.close()
+    print(f"[✔] Scatterplots opgeslagen als: {save_path}")
+    return fig
+
+def analyze_agent_simulation(df, save_path):
+    """Main analysis function - now focused on correlation matrix only"""
+    numeric_df = prepare_data(df)
+    
+    corr_matrix = create_correlation_matrix(numeric_df, save_path)
+    
     print("✅ YES - positive correlation (>0.3) suggests higher col1 → more col2")
     print("❌ NO - negative correlation (<0.3) suggests higher col1 → fewer col2")
     print("🤷 UNCLEAR - Otherwise: weak correlation, no clear relationship")
     
-    # 2. Find strongest correlations
+    # Find strongest correlations
     strong_corrs = []
     for i in range(len(corr_matrix.columns)):
         for j in range(i+1, len(corr_matrix.columns)):
@@ -68,4 +178,21 @@ def analyze_agent_simulation(df):
         for var1, var2, corr in sorted(strong_corrs, key=lambda x: abs(x[2]), reverse=True)[:5]:
             print(f"   {var1} ↔ {var2}: {corr:.3f}")
     
-    return plt
+
+    return numeric_df, corr_matrix
+
+def analyze_with_all_scatterplots(df, corr_save_path, scatter_save_path):
+    """Analyze with correlation matrix + all scatterplots"""
+    numeric_df, corr_matrix = analyze_agent_simulation(df, corr_save_path)
+    create_scatterplots(numeric_df, scatter_save_path, corr_matrix, mode='all')
+
+def analyze_with_strong_scatterplots(df, corr_save_path, scatter_save_path, threshold=0.05):
+    """Analyze with correlation matrix + scatterplots above threshold"""
+    numeric_df, corr_matrix = analyze_agent_simulation(df, corr_save_path)
+    create_scatterplots(numeric_df, scatter_save_path, corr_matrix, mode='strong', 
+                       correlation_threshold=threshold)
+
+def analyze_with_run_length_scatterplots(df, corr_save_path, scatter_save_path):
+    """Analyze with correlation matrix + scatterplots above threshold"""
+    numeric_df, corr_matrix = analyze_agent_simulation(df, corr_save_path)
+    create_scatterplots(numeric_df, scatter_save_path, corr_matrix, mode='run_length')

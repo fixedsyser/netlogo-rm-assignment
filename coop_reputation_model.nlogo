@@ -579,16 +579,17 @@ end
 
 
 to print-reputation-scores [title]
-  ; George: CODE OM REPUTATIELIJSTEN TE PRINTEN todo naar functie
-  printx""
-  printx (word "--- " title " ---")
-  ask agents [
-    let rep-list ""
-    foreach table:keys agent-reputations [
-      [id] ->
-      set rep-list (word rep-list id ": " table:get agent-reputations id ", ")
+  if print-enabled? [ ; George: CODE OM REPUTATIELIJSTEN TE PRINTEN todo naar functie
+    printx""
+    printx (word "--- " title " ---")
+    ask agents [
+      let rep-list ""
+      foreach table:keys agent-reputations [
+        [id] ->
+        set rep-list (word rep-list id ": " table:get agent-reputations id ", ")
+      ]
+      printx (word who ": " rep-list)
     ]
-    printx (word who ": " rep-list)
   ]
 end
 

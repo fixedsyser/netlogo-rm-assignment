@@ -16,7 +16,7 @@
 
 
 import shutil
-from correlation_analyzer import analyze_agent_simulation
+from correlation_analyzer import analyze_agent_simulation, create_scatterplots
 from itertools import combinations
 import os
 import pandas as pd
@@ -135,14 +135,10 @@ def plot_graph(df, filename, timestamp, metadata_str):
     print("saving graph WRH successful")
 
 def create_correlation_matrix(df):
-    plt = analyze_agent_simulation(df)
-    file = os.path.join(GRAPH_DIR, timestamp, f"correlation-matrix.png")
-    plt.savefig(file)
-    plt.close()
-    
-    print(f"[✔] Correlation Matrix opgeslagen als: {file}\n")
-    
-    
+    save_path = os.path.join(GRAPH_DIR, timestamp)
+    os.makedirs(save_path, exist_ok=True)
+    numeric_df, corr_matrix = analyze_agent_simulation(df, save_path)
+    create_scatterplots(numeric_df, save_path, corr_matrix, mode='run_length')
     
 def create_heatmap_data_winrates(df, varied_cols_pair, label):
     """Create heatmap data for a specific pair of varying columns"""
@@ -254,6 +250,7 @@ if __name__ == "__main__":
                 plot_graph(subdf, graph_name, timestamp, metadata)
                 print(f"[✓] Grafiek gegenereerd: {graph_name}.png")
             
+            # Creëer een correlatiematrix met bijbehorende scatterplots
             create_correlation_matrix(df.copy())
 
             # Verplaats originele CSV
