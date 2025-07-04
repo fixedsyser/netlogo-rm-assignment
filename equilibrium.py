@@ -16,7 +16,7 @@
 
 
 import shutil
-from correlation_analyzer import analyze_agent_simulation, create_scatterplots, plot_run_length_vs_trees
+from correlation_analyzer import analyze_agent_simulation, create_scatterplots, plot_run_length_vs_parameter
 from itertools import combinations
 import os
 import pandas as pd
@@ -134,12 +134,17 @@ def plot_graph(df, filename, timestamp, metadata_str):
     plt.close()
     print("saving graph WRH successful")
 
-def create_correlation_matrix(df):
+def create_correlation_matrix(df, varied_cols):
+    print(f"[🎨] Correlatie grafieken genereren..")
     save_path = os.path.join(GRAPH_DIR, timestamp)
     os.makedirs(save_path, exist_ok=True)
+    save_path_run_length = os.path.join(GRAPH_DIR, timestamp, "run_length_analysis")
+    os.makedirs(save_path_run_length, exist_ok=True)
+    
     numeric_df, corr_matrix = analyze_agent_simulation(df, save_path)
     create_scatterplots(numeric_df, save_path, corr_matrix, mode='run_length')
-    # plot_run_length_vs_trees(numeric_df, save_path)
+    plot_run_length_vs_parameter(numeric_df, save_path_run_length, varied_cols)
+    print(f"[✔] Correlatie grafieken succesvol gegenereerd!")
     
 def create_heatmap_data_winrates(df, varied_cols_pair, label):
     """Create heatmap data for a specific pair of varying columns"""
@@ -239,6 +244,9 @@ if __name__ == "__main__":
             start_idx = df.columns.get_loc("[run number]") + 1
             end_idx = df.columns.get_loc("[step]")
             config_cols = df.columns[start_idx:end_idx]
+            
+            # Bepaal welke configuratieparameters meer dan 1 unieke waarde hebben
+            varied_cols = [col for col in config_cols if df[col].nunique() > 1]
 
             # Groepeer per unieke configuratie
             grouped = df.groupby(list(config_cols))
@@ -252,7 +260,7 @@ if __name__ == "__main__":
                 print(f"[✓] Grafiek gegenereerd: {graph_name}.png")
             
             # Creëer een correlatiematrix met bijbehorende scatterplots
-            create_correlation_matrix(df.copy())
+            create_correlation_matrix(df.copy(), varied_cols)
 
             # Verplaats originele CSV
             new_name = f"{timestamp} - {file}"
@@ -260,29 +268,27 @@ if __name__ == "__main__":
             shutil.move(full_path, imported_path)
             print(f"[→] Bestand verplaatst naar 'imported'.\n")
 
+        
+            # === Extra HEATMAP als er precies twee varierende parameters zijn ===
+            if len(varied_cols) >= 2:
+                print(f"[🎨] Gevonden variërende parameters: {varied_cols}")
+                print(f"[🎨] Genereren van heatmaps voor alle combinaties...")
+                
+                # Generate heatmaps for all possible pairs of varying parameters
+                for pair in combinations(varied_cols, 2):
+                    print(f"\n[🎨] Verwerken combinatie: {pair[0]} vs {pair[1]}")
+                    
+                    # Create winrate heatmap
+                    winrate_data = create_heatmap_data_winrates(df, pair, "Honest Win %")
+                    create_heatmap(pair, winrate_data, "winrate", "Honest Win %")
+                    
+                    # Create tick length heatmap
+                    ticklength_data = create_heatmap_data_ticklength(df, pair, "Avg Run Length")
+                    create_heatmap(pair, ticklength_data, "ticklength", "Avg Run Length")
+                
         except Exception as e:
             print(f"[!] Fout bij verwerken van {file}: {e}\n")
             print(e.with_traceback)
 
-    # === Extra HEATMAP als er precies twee varierende parameters zijn ===
-
-    # Stap 1: Bepaal welke configuratieparameters meer dan 1 unieke waarde hebben
-    varied_cols = [col for col in config_cols if df[col].nunique() > 1]
-
-    if len(varied_cols) >= 2:
-        print(f"[🎨] Gevonden variërende parameters: {varied_cols}")
-        print(f"[🎨] Genereren van heatmaps voor alle combinaties...")
-        
-        # Generate heatmaps for all possible pairs of varying parameters
-        for pair in combinations(varied_cols, 2):
-            print(f"\n[🎨] Verwerken combinatie: {pair[0]} vs {pair[1]}")
-            
-            # Create winrate heatmap
-            winrate_data = create_heatmap_data_winrates(df, pair, "Honest Win %")
-            create_heatmap(pair, winrate_data, "winrate", "Honest Win %")
-            
-            # Create tick length heatmap
-            ticklength_data = create_heatmap_data_ticklength(df, pair, "Avg Run Length")
-            create_heatmap(pair, ticklength_data, "ticklength", "Avg Run Length")
     # Sluit af als alle bestanden zijn verwerkt
     print("[✔] Alle bestanden zijn verwerkt. Script beëindigd.")
