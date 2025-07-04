@@ -16,7 +16,7 @@
 
 
 import shutil
-from correlation_analyzer import analyze_agent_simulation, create_scatterplots
+from correlation_analyzer import analyze_agent_simulation, create_scatterplots, plot_run_length_vs_trees
 from itertools import combinations
 import os
 import pandas as pd
@@ -139,6 +139,7 @@ def create_correlation_matrix(df):
     os.makedirs(save_path, exist_ok=True)
     numeric_df, corr_matrix = analyze_agent_simulation(df, save_path)
     create_scatterplots(numeric_df, save_path, corr_matrix, mode='run_length')
+    # plot_run_length_vs_trees(numeric_df, save_path)
     
 def create_heatmap_data_winrates(df, varied_cols_pair, label):
     """Create heatmap data for a specific pair of varying columns"""

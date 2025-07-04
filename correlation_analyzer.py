@@ -181,6 +181,33 @@ def analyze_agent_simulation(df, save_path):
 
     return numeric_df, corr_matrix
 
+def plot_run_length_vs_trees(df, save_path):
+    # Check if number_of_trees exists and varies
+    if 'number_of_trees' not in df.columns:
+        print("[ℹ] number_of_trees not found or not varying, skipping run length analysis")
+        return
+    
+    print(f"[📈] Generating run length vs trees analysis")
+    
+    # Group by number_of_trees and calculate average run_length
+    avg_data = df.groupby('number_of_trees')['run_length'].agg(['mean']).reset_index()
+    
+    # Create the plot
+    plt.figure(figsize=(10, 6))
+    plt.plot(avg_data['number_of_trees'], avg_data['mean'], 
+                marker='o', linewidth=2, markersize=6)
+    
+    plt.xlabel("Number of Trees")
+    plt.ylabel("Average Run Length (Steps)")
+    plt.title("Average Run Length vs Number of Trees")
+    plt.grid(True, alpha=0.3)
+    
+    # Save the plot
+    plt.savefig(os.path.join(save_path, "run_length_vs_trees.png"), dpi=300, bbox_inches='tight')
+    plt.close()
+    print(f"[✔] Run length vs trees saved")
+
+
 def analyze_with_all_scatterplots(df, corr_save_path, scatter_save_path):
     """Analyze with correlation matrix + all scatterplots"""
     numeric_df, corr_matrix = analyze_agent_simulation(df, corr_save_path)
