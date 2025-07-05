@@ -1060,43 +1060,54 @@ chance of deceptive agent actually being deceptive
 1
 
 @#$#@#$#@
-This model is modified from the Wolf Sheep Predation model.
-The inspiration behind the model is a very nice video from the youtuber Primer, who simulates (and explains) social experiments. See the video here: https://www.youtube.com/watch?v=TZfh8hpJIxo
+**Cooperation vs. Competition Model with Communication and Reputation**
 
-**Cooperation vs. Competition Model**
-This NetLogo model compares cooperative and competitive strategies when resources are limited. Based on basic game theory concepts, it tests whether working together or looking out for yourself is more successful in different situations.
+This NetLogo model explores how cooperative and competitive strategies evolve when agents can communicate, build reputations, and engage in deception. It extends basic game theory concepts to include social dynamics like gossip, trust, and slander.
 
 **Model Overview**
-The model has two agent types:
 
-Team Blobs (blue): Work together to get more resources
-Solo Blobs (red): Compete for resources individually
+The model features two agent types:
+- **Honest agents (blue)**: Generally cooperate and share truthful information
+- **Deceptive agents (red)**: Generally exhibits deceptive behavior with a possibility of honest behavior based on deception-intensity, and may spread false information (slander)
 
-These agents move around a world with banana trees that provide the food they need to reproduce. Since trees are limited, only certain strategies will survive over time.
+Agents compete for limited banana trees while building reputation networks through direct experience and communication.
 
-**How It Works**
-Resources: Each banana tree has two bananaes at the bottom that any blob can reach, and two more bananaes higher up that require cooperation to access.
-Life Cycle: Blobs live for one day. They eat bananaes, reproduce based on how much food they collected, and then die. Each full banana's worth of energy produces one offspring.
+**Key Mechanics**
 
-**Interactions:**
-Solo meets solo: They fight, wasting some energy
-Team meets team: They cooperate, shaking the tree to get the higher bananaes
-Solo meets team: The solo blob takes advantage of the team blob
+**Team Formation & Resource Access:**
+- Agents form teams of two based on reputation scores - they prefer partners with higher reputations
+- Teams are assigned to banana trees through a sophisticated matching algorithm
+- Solo agents can also access trees when available
+
+**Energy System:**
+- **Alone at tree**: 1.75 energy points
+- **Two honest agents**: 2 energy points each (cooperation bonus)
+- **Honest + deceptive agents**: Honest gets 1 EP, deceptive gets 3 EP (exploitation)
+- **Two deceptive agents**: 1.5 energy points each (conflict)
+
+**Reputation & Communication:**
+- Agents maintain reputation tables scoring other agents from -1 to +1
+- Direct interactions update reputations: +1 for honest behavior, -1 for deceptive
+- **Gossip system**: Agents share reputation information with others (controlled by reputation-spread parameter)
+- **Belief mechanism**: How much agents trust shared information depends on the source's reputation and credulity-factor
+- **Slander**: Deceptive agents may flip positive reputations to negative when sharing (controlled by slander-ratio)
+
+**Population Dynamics:**
+- Agents age each tick and may die if energy falls below 1
+- Reproduction occurs when energy ≥ 2, with additional probabilistic reproduction
+- Model tracks population balance and stops if one type dominates or all agents die
+
+**Advanced Features**
+
+**Behavioral Flexibility:**
+- Deceptive agents can behave honestly some of the time (controlled by deception-intensity)
+
+**Reputation Persistence:**
+- Agents remember past interactions and base future decisions on accumulated reputation scores
+- Reputation information spreads through the population, creating indirect reputation effects
 
 
-**Energy Rules:**
-Working together costs some energy
-Fighting wastes energy
-Partial energy amounts give a chance to produce offspring
-Each tree can support a maximum of two blobs, creating competition when the population grows
-
-**Questions to Explore**
-When does teamwork beat individual competition?
-How do energy costs affect which strategy wins?
-What happens when you change the number of trees?
-Can both strategies survive together long-term?
-
-This model shows how basic rules about cooperation and competition can lead to interesting population dynamics over time.
+This model demonstrates how social mechanisms like reputation, communication, and trust can significantly influence evolutionary outcomes in competitive environments, adding layers of complexity beyond simple resource competition.
 @#$#@#$#@
 default
 true
