@@ -1407,6 +1407,78 @@ NetLogo 6.4.0
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
+<experiments>
+  <experiment name="baseline exp3" repetitions="150" runMetricsEveryStep="true">
+    <setup>setup</setup>
+    <go>go</go>
+    <timeLimit steps="1000"/>
+    <exitCondition>not any? deceptive-agents or not any? honest-agents</exitCondition>
+    <metric>count honest-agents</metric>
+    <metric>count deceptive-agents</metric>
+    <enumeratedValueSet variable="print-enabled?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-number-honest-agents">
+      <value value="60"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-number-deceptive-agents">
+      <value value="60"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="number-of-trees">
+      <value value="90"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="reputation-spread">
+      <value value="-1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-belief-factor">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="credulity-factor">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="slander-ratio">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="deception-intensity">
+      <value value="1"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="equilibrium exp3" repetitions="150" runMetricsEveryStep="true">
+    <setup>setup</setup>
+    <go>go</go>
+    <timeLimit steps="1000"/>
+    <exitCondition>not any? deceptive-agents or not any? honest-agents</exitCondition>
+    <metric>count honest-agents</metric>
+    <metric>count deceptive-agents</metric>
+    <enumeratedValueSet variable="print-enabled?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-number-honest-agents">
+      <value value="60"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-number-deceptive-agents">
+      <value value="60"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="number-of-trees">
+      <value value="90"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="reputation-spread">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-belief-factor">
+      <value value="0.65"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="credulity-factor">
+      <value value="0.2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="slander-ratio">
+      <value value="0.01"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="deception-intensity">
+      <value value="1"/>
+    </enumeratedValueSet>
+  </experiment>
+</experiments>
 @#$#@#$#@
 @#$#@#$#@
 default
