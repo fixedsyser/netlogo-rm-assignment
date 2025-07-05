@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE experiments SYSTEM "behaviorspace.dtd">
+<experiments>
+  <experiment name="H1" repetitions="150" runMetricsEveryStep="true">
+    <setup>setup</setup>
+    <go>go</go>
+    <timeLimit steps="2000"/>
+    <exitCondition>not any? deceptive-agents or not any? honest-agents</exitCondition>
+    <metric>count honest-agents</metric>
+    <metric>count deceptive-agents</metric>
+    <enumeratedValueSet variable="initial-number-honest-agents">
+      <value value="30"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-belief-factor">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="credulity-factor">
+      <value value="0.5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="print-enabled?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="slander-ratio">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="initial-number-deceptive-agents">
+      <value value="30"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="reputation-spread">
+      <value value="0"/>
+      <value value="1"/>
+      <value value="2"/>
+      <value value="3"/>
+      <value value="4"/>
+      <value value="5"/>
+      <value value="6"/>
+      <value value="7"/>
+      <value value="8"/>
+      <value value="9"/>
+      <value value="10"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="number-of-trees">
+      <value value="30"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="deception-intensity">
+      <value value="1"/>
+    </enumeratedValueSet>
+  </experiment>
+</experiments>
