@@ -20,7 +20,7 @@ def prepare_data(df):
     df = df.drop(columns=['print_enabled'])
     
     # Get the last row (final timestep) for each run
-    eind = df.groupby("run number").max()
+    eind = df.loc[df.groupby('run number')['step'].idxmax()]
     end_step = eind["step"]
     # Replace run numbers with their corresponding last step numbers
     df["run number"] = df["run number"].map(end_step)

@@ -16,6 +16,9 @@
 
 
 import shutil
+
+import scipy.stats as stats
+import numpy as np
 from correlation_analyzer import analyze_agent_simulation, create_scatterplots, plot_run_length_vs_parameter
 from itertools import combinations
 import os
@@ -127,7 +130,16 @@ def plot_graph(df, filename, timestamp, metadata_str):
 
     plt.xlabel("Step")
     plt.ylabel("Agent Count")
-    plt.legend()
+
+    plt.ylim(0, 200)
+    plt.yticks(range(0, 201, 50)) 
+    
+    plt.text(steps[-1] * 0.82, honest_mean.iloc[-10] - 5, ' Honest Agents',
+            color='blue', va='center')
+    plt.text(steps[-1] * 0.82, deceptive_mean.iloc[-10] + 5 , ' Deceptive Agents',
+            color='red', va='center')
+
+    plt.tight_layout()
 
     output_path = os.path.join(GRAPH_DIR, timestamp, f"WRH_{filename}.png")
     plt.savefig(output_path)
