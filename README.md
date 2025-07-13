@@ -27,3 +27,7 @@ Please cite this repository when using or referencing this work.
 This project was developed by George Silooy, Renée Vroedsteijn, Robert Zijdel 
 as part of IM1312 Research Methods for Artificial Intelligence, 
 Open University of the Netherlands.
+
+## Additional data
+The raw csv data resulting from the BehaviorSpace experiments can be found on osf.io at: 
+https://osf.io/zfjxn/
